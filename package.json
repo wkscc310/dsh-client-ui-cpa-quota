@@ -1,0 +1,41 @@
+{
+  "name": "dsh-client-ui-cpa-quota",
+  "description": "CliProxyAPI quota indicator: a native-styled ring left of the composer model name; hover shows per-account provider quotas, subscription plans, and status for Codex, Claude, Antigravity, Gemini CLI, Kimi, xAI/Grok, and other CPA auth providers.",
+  "version": "0.1.0",
+  "author": "wkscc310",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wkscc310/dsh-client-ui-cpa-quota.git"
+  },
+  "homepage": "https://github.com/wkscc310/dsh-client-ui-cpa-quota",
+  "bugs": {
+    "url": "https://github.com/wkscc310/dsh-client-ui-cpa-quota/issues"
+  },
+  "keywords": ["dsh", "cliproxyapi", "quota", "openai", "antigravity"],
+  "type": "module",
+  "scripts": {
+    "test": "node tests/smoke.mjs"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-settings-plugins"
+      ],
+      "platform": "web"
+    }
+  },
+  "license": "MIT"
+}

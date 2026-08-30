@@ -1,18 +1,37 @@
 #!/usr/bin/env sh
-# Install dsh-client-ui-cpa-quota into the DSH web profile.
-# Idempotent: safe to re-run. Symlinks the plugin into the profile's
-# node_modules (falls back to copying when symlinks are unavailable,
-# e.g. Windows without Developer Mode) and registers the loader entry.
+# Install dsh-client-ui-cpa-quota into the current dsh web profile.
+# Idempotent: safe to re-run.
+#
+# New dsh (0.1.1-rc.x) flow: the plugin's node half imports
+# @deepseek-ai/dsh-settings, so the package must materialize as a real
+# directory inside a node_modules that also carries the hoisted
+# @deepseek-ai dependencies. Preference order:
+#   1. `dsh plugin --profile web add` (official pnpm forwarder)
+#   2. copy into <profile>/node_modules/<name>
+#   3. copy into the shared <dsh home>/profiles/node_modules/<name>
+# Symlinks are no longer used: Node resolves modules from the link target's
+# realpath, which cannot see the profile's hoisted dependencies. Finally the
+# loader entry is registered in the profile's cordis.patch.yml.
 set -eu
 
 NAME="dsh-client-ui-cpa-quota"
+PROFILE="web"
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
 PLUGIN_DIR="$DSH_HOME/plugins/$NAME"
-LINK_DIR="$DSH_HOME/profiles/node_modules/$NAME"
-PATCH="$DSH_HOME/profiles/web/cordis.patch.yml"
+PROFILE_DIR="$DSH_HOME/profiles/$PROFILE"
+PROFILE_LINK="$PROFILE_DIR/node_modules/$NAME"
+LEGACY_LINK="$DSH_HOME/profiles/node_modules/$NAME"
+PATCH="$PROFILE_DIR/cordis.patch.yml"
 REPO="${REPO:-https://github.com/wkscc310/dsh-client-ui-cpa-quota}"
 
 say() { printf '[install] %s\n' "$1"; }
+
+# REPO ends up as command arguments (git/curl/wget); reject anything that is
+# not a plain http(s) URL before it is ever interpolated.
+case "$REPO" in
+    https://*|http://*) ;;
+    *) printf '[install] REPO must be an http(s) URL, got: %s\n' "$REPO" >&2; exit 1 ;;
+esac
 
 copy_contents() {
     source_dir=$1
@@ -26,6 +45,17 @@ copy_contents() {
         esac
         cp -R "$item" "$destination_dir/"
     done
+}
+
+# Replace whatever sits at the destination (old copy or symlink) with a fresh
+# copy of the plugin. Only ever called on our own package's path.
+place_copy() {
+    destination_dir=$1
+    if [ -L "$destination_dir" ] || [ -d "$destination_dir" ]; then
+        rm -rf "$destination_dir"
+    fi
+    mkdir -p "$(dirname -- "$destination_dir")"
+    copy_contents "$PLUGIN_DIR" "$destination_dir"
 }
 
 sync_remote_source() {
@@ -65,27 +95,56 @@ else
     fi
 fi
 
-# 2. Link into the profile's node_modules so the DSH loader can resolve it.
-mkdir -p "$DSH_HOME/profiles/node_modules"
-if [ -L "$LINK_DIR" ]; then
-    say "profile symlink already exists: $LINK_DIR"
-elif [ -e "$LINK_DIR" ]; then
-    copy_contents "$PLUGIN_DIR" "$LINK_DIR"
-    say "updated copied plugin: $LINK_DIR"
-else
-    if ln -s "$PLUGIN_DIR" "$LINK_DIR" 2>/dev/null; then
-        say "symlinked $LINK_DIR -> $PLUGIN_DIR"
+# 2. Materialize the package where the dsh loader can resolve it.
+installed=""
+if command -v dsh >/dev/null 2>&1; then
+    native_path=$PLUGIN_DIR
+    # Git Bash / MSYS: hand pnpm a Windows path, not a /c/... translation.
+    if command -v cygpath >/dev/null 2>&1; then
+        native_path=$(cygpath -w "$PLUGIN_DIR")
+    fi
+    if dsh plugin --profile "$PROFILE" add "$native_path"; then
+        installed="dsh"
+        say "installed into the $PROFILE profile via dsh plugin add"
     else
-        copy_contents "$PLUGIN_DIR" "$LINK_DIR"
-        say "symlink unavailable — copied to $LINK_DIR"
+        say "dsh plugin add failed — falling back to a direct copy"
+    fi
+else
+    say "dsh CLI not found on PATH — falling back to a direct copy"
+fi
+
+if [ -z "$installed" ]; then
+    if place_copy "$PROFILE_LINK" 2>/dev/null; then
+        installed="profile"
+        say "copied plugin: $PROFILE_LINK"
+    elif place_copy "$LEGACY_LINK"; then
+        installed="shared"
+        say "copied plugin: $LEGACY_LINK"
+    else
+        say "unable to write the plugin into any profile node_modules"
+        exit 1
     fi
 fi
 
-# 3. Register the loader entry (append only when missing).
+# A pre-existing symlinked install cannot resolve the node half's imports
+# (Node walks the link target's realpath), so retire it when present.
+if [ -L "$LEGACY_LINK" ] && [ "$installed" != "shared" ]; then
+    rm "$LEGACY_LINK"
+    say "removed legacy symlink: $LEGACY_LINK"
+fi
+
+# 3. Register the loader entry (idempotent). A fresh profile's patch file
+#    holds a literal `[]` placeholder — appending after it would produce an
+#    invalid two-document YAML file, so the placeholder is replaced instead.
 mkdir -p "$(dirname -- "$PATCH")"
 touch "$PATCH"
 if grep -q "name: ['\"]\?$NAME" "$PATCH"; then
     say "patch entry already present in $PATCH"
+elif grep -v '^[[:space:]]*#' "$PATCH" | grep -v '^[[:space:]]*$' | grep -q '^\[\][[:space:]]*$'; then
+    tmp=$(mktemp "${TMPDIR:-/tmp}/$NAME-patch.XXXXXX")
+    awk -v name="$NAME" '!done && $0 ~ /^\[\][[:space:]]*$/ { printf "- insert:\n    - id: ui-cpa-quota\n      name: %s\n", name; done=1; next } { print }' "$PATCH" > "$tmp"
+    mv "$tmp" "$PATCH"
+    say "patch entry written into $PATCH (replaced the placeholder [])"
 else
     printf '\n- insert:\n    - id: ui-cpa-quota\n      name: %s\n' "$NAME" >> "$PATCH"
     say "patch entry appended to $PATCH"

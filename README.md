@@ -1,45 +1,65 @@
 # dsh-client-ui-cpa-quota
 
-[![GitHub](https://img.shields.io/badge/GitHub-wkscc310%2Fdsh--client--ui--cpa--quota-181717?logo=github)](https://github.com/wkscc310/dsh-client-ui-cpa-quota) [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-wkscc310%2Fdsh--client--ui--cpa--quota-181717?logo=github)](https://github.com/wkscc310/dsh-client-ui-cpa-quota)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml/badge.svg)](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml)
+[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x-29abe2)](https://github.com/deepseek-ai/deepseek-harness)
 
 English | [中文](README.zh.md)
 
-A [DSH (DeepSeek Harness)](https://github.com/deepseek-ai) Web UI plugin that displays [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) quota next to the model picker. It adds a native-looking 14px ring beside the model button; hover it to inspect matching accounts, providers, subscription plans, quota windows, and reset times.
+A [DSH (DeepSeek Harness)](https://github.com/deepseek-ai/deepseek-harness) Web UI plugin that shows [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) quota right where you look: a native-styled ring beside the model picker, a health dot on the settings card, and a CPA-management-style panel listing **every account's quota windows** in one place.
+
+- Zero dependencies, plain JavaScript, no build step.
+- Instances are discovered automatically from your DSH provider `baseURL`s — no model lists, no config file required.
+- Everything runs browser-side; your management keys never leave this browser's `localStorage`.
 
 ## Screenshots
 
-### Model quota tooltip
+### Collapsed card with quota health dot
+
+The settings card stays collapsed like the built-in ones. The dot condenses every instance's worst window: green = healthy, amber = a window under 20%, red = exhausted or a failed refresh, gray = waiting / no key.
+
+<p align="center">
+  <img src="assets/screenshots/settings-card-collapsed.png" alt="Collapsed CliProxyAPI quota card with health dot" width="900">
+</p>
+
+### All accounts, CPA-management style
+
+Expand it and every account of every instance is listed with its subscription plan, provider badge, and all quota windows (5-hour / weekly / monthly) — not filtered by the current model. (Demo data from `tests/mock-cpa.mjs`.)
+
+<p align="center">
+  <img src="assets/screenshots/settings-card-accounts.png" alt="All-accounts quota panel" width="900">
+</p>
+
+### Ring beside the model picker
+
+Hover the ring next to the selected model for matching accounts, providers, plans, windows, and reset times.
 
 <p align="center">
   <img src="assets/screenshots/quota-tooltip.png" alt="Model quota tooltip" width="900">
-</p>
-
-### Plugin settings card
-
-<p align="center">
-  <img src="assets/screenshots/settings-card.png" alt="CliProxyAPI quota plugin settings" width="720">
 </p>
 
 ## Features
 
 - Reads models and `baseURL` values from DSH providers automatically; no model list to maintain.
 - Fingerprints each `baseURL` as CLIProxyAPI and never leaves an empty ring on ordinary OpenAI-compatible endpoints.
-- Supports multiple CLIProxyAPI instances and accounts, filtering the tooltip to the selected model.
+- Supports multiple CLIProxyAPI instances and accounts, filtering the hover tooltip to the selected model while the settings panel always shows everything.
 - Orders windows as `5-hour → weekly → monthly → daily`; the ring uses the first available window in that order.
 - Queries Codex, Claude, Antigravity, Gemini CLI, Kimi, and xAI/Grok through their upstream quota APIs; other CPA providers still expose account status and recent activity.
+- Account probes run through a bounded pool with a per-request timeout — one hung upstream can never stall the refresh cycle.
 - Keeps the last successful snapshot across transient refresh failures and reuses rings across DSH screen remounts.
 - Colors: green ≥20% remaining, amber <20%, red exhausted/error, gray loading or missing a management key.
 
 ## Requirements
 
-- DSH **Web profile** (the plugin only registers in the Web UI).
+- DSH **Web profile** on the current plugin contract (validated against `dsh` 0.1.1-rc.2); the plugin only registers in the Web UI.
 - A reachable CLIProxyAPI instance with its management API enabled.
 - Models must be routed through a DSH provider whose `baseURL` points at the corresponding CPA instance.
 - A management key for each CPA instance. Keys entered in the settings card stay in the current browser's `localStorage`; YAML-managed keys remain in the YAML file.
 
 ## Quick install
 
-The installer places the plugin under `~/.dsh/plugins`, links or copies it into the Web profile's `node_modules`, and appends the loader entry.
+The installer places the plugin under `~/.dsh/plugins`, materializes it into the Web profile with `dsh plugin --profile web add` (falling back to copying it into the profile's `node_modules`), and registers the loader entry in the profile's `cordis.patch.yml`.
 
 ### Windows PowerShell
 
@@ -59,9 +79,9 @@ Restart the DSH Web host, then open:
 Settings → Plugins → CliProxyAPI Quota
 ```
 
-Paste the management key for each instance and reopen the model picker.
+Expand the card, paste the management key for each instance, and reopen the model picker.
 
-> If Windows cannot create symlinks, the installer falls back to copying the plugin. Re-run the installer after updates when using copy mode.
+> The plugin installs as a plain dependency plus a loader entry (it is a UI plugin, not a `dsh.bundle`), so the `declares no dsh.bundle` warning during `dsh plugin add` is expected. Re-run the installer after updates.
 
 ## Manual install
 
@@ -69,19 +89,24 @@ Paste the management key for each instance and reopen the model picker.
 
 ```sh
 git clone https://github.com/wkscc310/dsh-client-ui-cpa-quota.git "$HOME/.dsh/plugins/dsh-client-ui-cpa-quota"
-mkdir -p "$HOME/.dsh/profiles/node_modules"
-ln -s "$HOME/.dsh/plugins/dsh-client-ui-cpa-quota" "$HOME/.dsh/profiles/node_modules/dsh-client-ui-cpa-quota"
+dsh plugin --profile web add "$HOME/.dsh/plugins/dsh-client-ui-cpa-quota"
 ```
 
 ### Windows PowerShell
 
 ```powershell
 git clone https://github.com/wkscc310/dsh-client-ui-cpa-quota.git "$env:USERPROFILE\.dsh\plugins\dsh-client-ui-cpa-quota"
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.dsh\profiles\node_modules" | Out-Null
-New-Item -ItemType SymbolicLink -Path "$env:USERPROFILE\.dsh\profiles\node_modules\dsh-client-ui-cpa-quota" -Target "$env:USERPROFILE\.dsh\plugins\dsh-client-ui-cpa-quota"
+dsh plugin --profile web add "$env:USERPROFILE\.dsh\plugins\dsh-client-ui-cpa-quota"
 ```
 
-Add the loader entry to `~/.dsh/profiles/web/cordis.patch.yml` (Windows: `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`):
+Without the `dsh` CLI (or without pnpm), copy the plugin into the profile's `node_modules` instead — a symlink will not work, because Node resolves imports from the link target's real path:
+
+```sh
+mkdir -p "$HOME/.dsh/profiles/web/node_modules"
+cp -R "$HOME/.dsh/plugins/dsh-client-ui-cpa-quota" "$HOME/.dsh/profiles/web/node_modules/"
+```
+
+Add the loader entry to `~/.dsh/profiles/web/cordis.patch.yml` (Windows: `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`). If the file still contains the fresh-profile placeholder `[]`, replace it with the entry:
 
 ```yaml
 - insert:
@@ -124,29 +149,30 @@ The browser settings card overrides YAML. `refreshMinutes` is clamped to at leas
 
 1. The plugin builds a model → `baseURL` index from DSH `llm.providers` and `settings.describe`, normalizing away the protocol, `www.`, and a trailing `/v1`.
 2. It requests `<baseURL>/v0/management/usage-statistics-enabled` for each provider base.
-3. A 401 containing `management`/`unauthorized`, or a valid management response, identifies CLIProxyAPI. Typical 404s, other responses, and network failures are not added as quota instances.
-4. Verdicts are cached in the browser for one hour. A ring is created only for a confirmed CPA base; after confirmation, the management key is used for `/v0/management/auth-files` and upstream quota calls.
+3. A 401 containing `management`/`unauthorized`, or a CPA-shaped 2xx, identifies CLIProxyAPI. Typical 404s, other responses, and network failures are not added as quota instances.
+4. Verdicts are cached in the browser for one hour; **Refresh now** re-fingerprints immediately, so a newly added CPA instance shows up without waiting.
 
 That is why a model using an ordinary OpenAI-compatible baseURL has no empty ring. An auto-detected CPA without a management key gets a gray ring and a settings hint.
 
-## Troubleshooting
-
-- **No ring**: verify that the selected model's DSH provider `baseURL` points to CLIProxyAPI rather than an upstream official API, and that the management API is enabled.
-- **Gray ring**: add the instance's management key under **Settings → Plugins → CliProxyAPI Quota**.
-- **Old model/instance data**: restart the DSH Web host or use the refresh control; discovery verdicts are cached for up to one hour.
-- **Updates do not appear after a copied install**: re-run the installer, or remove `~/.dsh/profiles/node_modules/dsh-client-ui-cpa-quota` and install again.
-
 ## Development
 
-Plain JavaScript, no build step. After editing `lib/client.js`, run:
+Plain JavaScript, no build step.
 
 ```sh
-node --check lib/client.js
-node tests/smoke.mjs
-git diff --check
+node --check lib/client.js && node --check lib/index.js
+node tests/smoke.mjs        # full logic + settings-card render harness
+node tests/mock-cpa.mjs     # optional: a fake CPA on http://127.0.0.1:8317 (key: mock-key)
 ```
 
-Issues and pull requests are welcome at [github.com/wkscc310/dsh-client-ui-cpa-quota](https://github.com/wkscc310/dsh-client-ui-cpa-quota).
+Point the plugin's manual instance input at the mock to see a full five-account demo without a real CPA. CI runs the syntax checks and the smoke test on Ubuntu and Windows for every push and pull request.
+
+## FAQ
+
+- **No ring?** The selected model's DSH provider `baseURL` must point at CLIProxyAPI rather than an upstream official API, and the management API must be enabled. The ring is per model — switch models and it follows.
+- **Gray ring?** Paste the instance's management key under **Settings → Plugins → CliProxyAPI Quota**.
+- **Just added a CPA instance and nothing shows up?** Hit **Refresh now** in the card — it re-fingerprints every provider base immediately instead of waiting out the one-hour probe cache.
+- **Stale numbers?** Numbers refresh on the configured interval; a failed refresh keeps the last good snapshot and says so on the card.
+- **Where are my keys stored?** In this browser's `localStorage` only. Quota requests go straight from the browser to each instance; the DSH host never sees your keys.
 
 ## License
 

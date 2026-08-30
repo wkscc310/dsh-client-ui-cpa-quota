@@ -1,0 +1,30 @@
+# CI: syntax checks plus the smoke test (full logic + settings-card render
+# harness) on the two platforms the plugin's installers target.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax checks
+        run: |
+          node --check lib/client.js
+          node --check lib/index.js
+        shell: bash
+      - name: Smoke test
+        run: node tests/smoke.mjs
+      - name: Whitespace hygiene
+        run: git diff --check
+        shell: bash

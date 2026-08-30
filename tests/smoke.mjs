@@ -1,7 +1,8 @@
 // Smoke test: load the client bundle factory with stubbed window/document,
 // drive the full logic — config merge, provider directory join, CPA
-// fingerprint discovery, codex/antigravity quota probes, aggregation, and
-// the settings-card slot registration — against a fake DOM + fetch layer.
+// fingerprint discovery, codex/antigravity quota probes, aggregation, the
+// settings-card slot registration, and the collapsible settings card itself
+// (render harness with two-pass hooks) — against a fake DOM + fetch layer.
 import { readFileSync } from "node:fs";
 
 const pluginUrl = new URL("../lib/client.js", import.meta.url);
@@ -25,11 +26,15 @@ function makeEl(tag) {
     appendChild(c) { this.children.push(c); c.parent = this; return c; },
     insertBefore(c) { this.children.unshift(c); c.parent = this; return c; },
     removeChild(c) { this.children = this.children.filter((x) => x !== c); },
+    replaceChildren(...next) { this.children = [...next]; for (const c of next) c.parent = this; },
     remove() { if (this.parent) this.parent.removeChild(this); },
     addEventListener(type, listener) {
       const list = this.listeners.get(type) ?? [];
       list.push(listener);
       this.listeners.set(type, list);
+    },
+    removeEventListener(type, listener) {
+      this.listeners.set(type, (this.listeners.get(type) ?? []).filter((l) => l !== listener));
     },
     dispatchEvent(event) {
       for (const listener of this.listeners.get(event.type) ?? []) listener(event);
@@ -50,6 +55,7 @@ function makeEl(tag) {
       }
       return null;
     },
+    querySelectorAll() { return []; },
     getBoundingClientRect() { return { left: 100, top: 100, right: 108, bottom: 108, width: 8, height: 8 }; },
   };
   Object.defineProperty(node, "textContent", {
@@ -71,10 +77,12 @@ const documentStub = {
   createElementNS: (ns, tag) => makeEl(tag),
   querySelectorAll: () => [],
 };
+const realSetTimeout = setTimeout;
 const windowStub = {
-  localStorage: { store: new Map(), getItem(k) { return this.store.get(k) ?? null; }, setItem(k, v) { this.store.set(k, v); } },
-  setTimeout, clearTimeout, setInterval: () => 1, clearInterval: () => {}, cancelAnimationFrame: () => {},
-  requestAnimationFrame: (fn) => setTimeout(fn, 0),
+  localStorage: { store: new Map(), getItem(k) { return this.store.get(k) ?? null; }, setItem(k, v) { this.store.set(k, v); }, removeItem(k) { this.store.delete(k); } },
+  setTimeout: (...a) => realSetTimeout(...a),
+  clearTimeout, setInterval: () => 1, clearInterval: () => {},
+  requestAnimationFrame: (fn) => realSetTimeout(fn, 0),
   addEventListener() {}, removeEventListener() {},
   dispatchEvent: () => true, CustomEvent: class { constructor(type) { this.type = type; } },
   innerWidth: 1280, innerHeight: 800,
@@ -92,13 +100,99 @@ globalThis.MutationObserver = class {
   trigger() { this.callback([]); }
 };
 
-// Minimal react stub: enough for the settings card to construct without rendering.
+// --- React stub with a real enough hook runtime to render the settings card ---
+// Function components are invoked one level deep by createElement. Hook cells
+// persist across renders, keyed by component name + invocation order (the card
+// tree is deterministic, so call order is a stable identity). This is what
+// lets the smoke test assert the collapsible card's output, the panel node
+// memoization, and the save/commit flow.
+let hookScope = null;
+let invocationCounter = 0;
+let rerenderQueued = false;
+const hookStore = new Map();
+const memoTrace = [];
+function invokeComponent(tag, props) {
+  const key = `${tag.name}#${invocationCounter++}`;
+  let store = hookStore.get(key);
+  if (store === undefined) {
+    store = { key, states: [], reducers: [], effects: [], refs: [], memos: [] };
+    hookStore.set(key, store);
+  }
+  store.cursor = 0;
+  const previous = hookScope;
+  hookScope = store;
+  const tree = tag(props ?? {});
+  hookScope = previous;
+  return { tag, props, children: [tree] };
+}
+function hookCell(kind) {
+  if (hookScope === null) throw new Error("hook used outside a component render");
+  const index = hookScope.cursor ?? 0;
+  hookScope.cursor = index + 1;
+  const list = hookScope[kind];
+  if (list[index] === undefined) list[index] = {};
+  return list[index];
+}
 const reactStub = {
-  createElement: (tag, props, ...children) => ({ tag, props, children }),
-  useState: (initial) => [typeof initial === "function" ? initial() : initial, () => {}],
-  useReducer: (reducer, initial) => [initial, () => {}],
-  useEffect: () => {},
+  createElement(tag, props, ...children) {
+    if (typeof tag === "function") return invokeComponent(tag, props);
+    return { tag, props, children };
+  },
+  useReducer(reducer, initial) {
+    const cell = hookCell("reducers");
+    if (cell.value === undefined) cell.value = typeof initial === "function" ? initial() : initial;
+    return [cell.value, () => { cell.value = reducer(cell.value); rerenderQueued = true; }];
+  },
+  useState(initial) {
+    const cell = hookCell("states");
+    if (cell.value === undefined) cell.value = typeof initial === "function" ? initial() : initial;
+    return [cell.value, (value) => {
+      cell.value = typeof value === "function" ? value(cell.value) : value;
+      rerenderQueued = true;
+    }];
+  },
+  useEffect(fn, deps) {
+    const cell = hookCell("effects");
+    const changed = cell.deps === undefined || deps === undefined || deps.length !== cell.deps.length || deps.some((d, i) => d !== cell.deps[i]);
+    if (!changed) return;
+    cell.deps = deps;
+    if (cell.cleanup !== undefined) cell.cleanup();
+    cell.cleanup = fn();
+  },
+  useRef(value) {
+    const cell = hookCell("refs");
+    if (cell.ref === undefined) cell.ref = { current: value };
+    return cell.ref;
+  },
+  useMemo(fn, deps) {
+    const cell = hookCell("memos");
+    const changed = cell.deps === undefined || deps.length !== cell.deps.length || deps.some((d, i) => d !== cell.deps[i]);
+    if (changed) {
+      cell.deps = deps;
+      cell.value = fn();
+    }
+    memoTrace.push({ key: hookScope.key, value: cell.value });
+    return cell.value;
+  },
 };
+/** Render a component to a tree, flushing scheduled re-renders and effects. */
+function renderComponent(component, props = {}) {
+  memoTrace.length = 0;
+  let tree = null;
+  for (let pass = 0; pass < 8; pass += 1) {
+    invocationCounter = 0;
+    rerenderQueued = false;
+    tree = invokeComponent(component, props);
+    if (!rerenderQueued) break;
+  }
+  return tree;
+}
+function findInTree(tree, predicate, hits = []) {
+  if (tree === null || tree === undefined || typeof tree !== "object") return hits;
+  if (predicate(tree)) hits.push(tree);
+  for (const child of tree.children ?? []) findInTree(child, predicate, hits);
+  return hits;
+}
 
 let captured;
 windowStub.__ModuleLoader__ = { load: (entry) => { captured = entry; } };
@@ -383,9 +477,10 @@ if (badUrl) throw new Error("management URL must not carry a /v1 prefix: " + bad
 if (apiCalls.some((c) => c.url.startsWith("https://other-cpa.example") && c.url.includes("auth-files"))) {
   throw new Error("keyless discovered instance should not call auth-files");
 }
-// Settings card registered on the plugins slot.
+// Settings card registered on the plugins slot, keyed by the settings
+// namespace the node half serves (current dsh dispatches cards by key).
 const card = registeredSlots.find((r) => r.def && r.def.name === "settings.plugin.item");
-if (!card || card.def.id !== "cpa-quota") throw new Error("settings card not registered");
+if (!card || card.def.key !== "cpa-quota") throw new Error("settings card not registered with the cpa-quota namespace key");
 
 // --- DOM pass with three triggers ---
 function makeTrigger(labelText) {
@@ -466,8 +561,146 @@ observers.at(-1)?.trigger();
 await new Promise((r) => setTimeout(r, 30));
 if (ringOf(replacement) !== null) throw new Error("non-CPA model retained an empty quota ring");
 
+// --- settings card render harness ---
+const cardComponent = card.component;
+if (typeof cardComponent !== "function") throw new Error("settings card component not captured");
+
+// Collapsed by default: only the header renders, with the health dot.
+let tree = renderComponent(cardComponent);
+let root = tree.children[0];
+if (root.props.className !== "cpa-q-card") throw new Error("card root class wrong");
+const toggle = root.children[0];
+if (toggle.props.className !== "cpa-q-card-toggle" || toggle.props["aria-expanded"] !== false) throw new Error("collapsed card must render the toggle button");
+if (root.children[1] !== null) throw new Error("collapsed card must not render a body");
+const heading = toggle.children[0];
+const dot = heading.children[0];
+if (dot.props.className !== "cpa-q-card-dot") throw new Error("health dot missing from the collapsed header");
+if (dot.props["data-level"] !== "ok") throw new Error("health dot level wrong with data present: " + dot.props["data-level"]);
+const chevron = toggle.children[1];
+if (chevron.props.className !== "cpa-q-card-chevron") throw new Error("chevron missing");
+
+// Expanding renders the body with instance rows and DomSlot panels.
+toggle.props.onClick();
+tree = renderComponent(cardComponent);
+root = tree.children[0];
+if (root.children[1] === null) throw new Error("expanded card must render a body");
+const bodyEl = root.children[1];
+const instRows = findInTree(bodyEl, (n) => n.props?.className === "cpa-q-inst");
+if (instRows.length !== 2) throw new Error("expected two discovered instance rows, got " + instRows.length);
+const domSlots = findInTree(bodyEl, (n) => typeof n.tag === "function" && n.tag.name === "DomSlot");
+if (domSlots.length !== 2) throw new Error("expected one accounts panel per instance, got " + domSlots.length);
+const notes1 = memoTrace.filter((m) => m.key.startsWith("DomSlot#"));
+if (notes1.length !== 2) throw new Error("one memoized panel per DomSlot expected, got " + notes1.length);
+// Row 1 (cpa-fixture) has a usable quota snapshot: the panel must list EVERY
+// account with its windows — the CPA-management-style all-accounts view.
+if (notes1[0].value.className !== "cpa-q-accounts") throw new Error("panel with quota data must render the accounts container: " + notes1[0].value.className);
+const panelText = treeText(notes1[0].value);
+for (const name of ["codex-acc", "ag-acc", "ag-second", "claude-acc", "kimi-acc", "xai-acc", "xai-paid-acc"]) {
+  if (!panelText.includes(name)) throw new Error("all-accounts panel must list " + name + "; got: " + panelText);
+}
+if (!panelText.includes("Five Hour Limit Remaining") || !panelText.includes("Weekly Limit Remaining")) throw new Error("panel must render quota windows");
+// Row 2 (other-cpa) is keyless: the panel shows the paste-key hint.
+if (notes1[1].value.className !== "cpa-q-accounts-note") throw new Error("keyless panel must render the paste-key note: " + notes1[1].value.className);
+if (!/management key|管理密钥|填入/.test(treeText(notes1[1].value))) throw new Error("keyless instance panel must show the paste-key hint");
+
+// BUG 1 regression: a clock tick re-renders the card with unchanged quota —
+// the mounted panel node must keep its identity so the user's scroll position
+// survives (deps [instanceKey, quota] are stable).
+const quotaBefore = domSlots[0].props.quota;
+tree = renderComponent(cardComponent);
+const domSlotsAfter = findInTree(tree, (n) => typeof n.tag === "function" && n.tag.name === "DomSlot");
+if (domSlotsAfter[0].props.quota !== quotaBefore) throw new Error("quota snapshot identity must stay stable across clock ticks");
+const notes2 = memoTrace.filter((m) => m.key.startsWith("DomSlot#"));
+if (notes2[0].value !== notes1[0].value || notes2[1].value !== notes1[1].value) {
+  throw new Error("panel DOM node must be reused across clock-tick re-renders (scroll would reset)");
+}
+
+// BUG 3: saving a key must persist the keyed row and drop empty-key
+// discovered rows from localStorage. (onChange first, then a re-render —
+// real React commits the draft before the blur event fires.)
+const keyedRow = instRows.find((row) => String(row.props.key ?? "").includes("cpa-fixture")) ?? instRows[0];
+const keyInput = findInTree(keyedRow, (n) => n.props?.className === "cpa-q-input" && n.props?.type === "password")[0];
+keyInput.props.onChange({ target: { value: "sk-test-1" } });
+tree = renderComponent(cardComponent);
+const refreshedRow = findInTree(tree, (n) => n.props?.className === "cpa-q-inst" && String(n.props.key ?? "").includes("cpa-fixture"))[0];
+const refreshedInput = findInTree(refreshedRow, (n) => n.props?.className === "cpa-q-input" && n.props?.type === "password")[0];
+if (refreshedInput.props.value !== "sk-test-1") throw new Error("drafted key must render back into the input, got: " + refreshedInput.props.value);
+refreshedInput.props.onBlur();
+const savedConfig = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:config"));
+if (!savedConfig.instances.some((i) => i.baseURL.includes("cpa-fixture") && i.managementKey === "sk-test-1")) throw new Error("saved key row missing from localStorage: " + JSON.stringify(savedConfig));
+if (savedConfig.instances.some((i) => i.managementKey === "")) throw new Error("empty-key discovered rows must not be persisted: " + JSON.stringify(savedConfig));
+
+// BUG 2: account probes run through a bounded pool — 12 accounts must never
+// exceed 5 simultaneous upstream calls, and every account still resolves.
+// (The localStorage config from the BUG 3 save is cleared so exactly one
+// keyed instance refreshes; the pool is per instance.)
+windowStub.localStorage.store.delete("dsh-cpa-quota:config");
+const poolAuthFiles = { files: Array.from({ length: 12 }, (_, i) => ({ auth_index: `p-${i}`, name: `acc-${i}`, provider: "codex", status: "available", id_token: `x.${Buffer.from(JSON.stringify({ chatgpt_account_id: `acct-${i}` })).toString("base64url")}.y` })) };
+let inflight = 0;
+let peak = 0;
+globalThis.fetch = async (url, init = {}) => {
+  const u = String(url);
+  if (u.endsWith("/v0/management/auth-files")) return { ok: true, status: 200, text: async () => JSON.stringify(poolAuthFiles) };
+  if (u.endsWith("/v0/management/usage-statistics-enabled")) return { ok: false, status: 401, text: async () => '{"error":"management key required"}' };
+  if (u.endsWith("/v0/management/api-call")) {
+    inflight += 1;
+    peak = Math.max(peak, inflight);
+    await new Promise((r) => realSetTimeout(r, 25));
+    inflight -= 1;
+    return {
+      ok: true, status: 200,
+      text: async () => JSON.stringify({
+        status_code: 200,
+        body: JSON.stringify({ plan_type: "pro", rate_limit: { primary_window: { used_percent: 10, limit_window_seconds: 18000, reset_after_seconds: 3600 } } }),
+      }),
+    };
+  }
+  throw new Error(`unexpected fetch ${u}`);
+};
+documentStub.querySelectorAll = () => [];
+mod.apply(ctx, { instances: [{ baseURL: "https://pool.example/v1", managementKey: "pool-key" }], refreshMinutes: 5 });
+await new Promise((r) => setTimeout(r, 700));
+if (peak === 0 || peak > 5) throw new Error("account probes must stay inside the concurrency pool, peak=" + peak);
+
+// BUG 2 (timeout): a hung upstream aborts after the request ceiling and the
+// refresh cycle completes — it never wedges the `refreshing` flag.
+const realWindowSetTimeout = windowStub.setTimeout;
+windowStub.setTimeout = (fn, ms, ...rest) => (ms >= 5000 ? realWindowSetTimeout(fn, 5, ...rest) : realWindowSetTimeout(fn, ms, ...rest));
+let hangAborted = false;
+globalThis.fetch = async (url, init = {}) => {
+  const u = String(url);
+  if (u.endsWith("/v0/management/auth-files")) return { ok: true, status: 200, text: async () => JSON.stringify({ files: [{ auth_index: "hang-1", name: "hang-acc", provider: "codex", status: "available", id_token: `x.${Buffer.from(JSON.stringify({ chatgpt_account_id: "hang" })).toString("base64url")}.y` }] }) };
+  if (u.endsWith("/v0/management/usage-statistics-enabled")) return { ok: false, status: 401, text: async () => '{"error":"management key required"}' };
+  if (u.endsWith("/v0/management/api-call")) {
+    await new Promise((resolve, reject) => {
+      if (init.signal) {
+        init.signal.addEventListener("abort", () => {
+          hangAborted = true;
+          reject(new Error("aborted"));
+        });
+      } else reject(new Error("no signal"));
+      // never resolves on its own
+    });
+  }
+  throw new Error(`unexpected fetch ${u}`);
+};
+documentStub.querySelectorAll = () => [];
+mod.apply(ctx, { instances: [{ baseURL: "https://hang.example/v1", managementKey: "hang-key" }], refreshMinutes: 5 });
+await new Promise((r) => setTimeout(r, 300));
+windowStub.setTimeout = realWindowSetTimeout;
+if (!hangAborted) throw new Error("hung upstream request must be aborted by the per-request timeout");
+// The cycle must still be alive: a follow-up refresh reaches the wire again.
+apiCalls.length = 0;
+const realFetch5 = globalThis.fetch;
+globalThis.fetch = async (url, init) => { apiCalls.push({ url: String(url), init }); return realFetch5(url, init); };
+mod.apply(ctx, { instances: [{ baseURL: "https://hang2.example/v1", managementKey: "hang-key" }], refreshMinutes: 5 });
+await new Promise((r) => setTimeout(r, 300));
+if (!apiCalls.some((c) => c.url.includes("hang2.example") && c.url.includes("auth-files"))) throw new Error("refresh cycle wedged after a timeout — later refreshes never ran");
+
+// 额度快照被替换后,卡片下一次渲染必须换用新面板(非回归)
 console.log("SMOKE OK");
 console.log("  gemini dot:", geminiDot.getAttribute("data-cpa-level"), "@", geminiDot.getAttribute("data-cpa-base"));
 console.log("  claude dot:", claudeDot.getAttribute("data-cpa-level"), "@", claudeDot.getAttribute("data-cpa-base"), "(discovered, keyless)");
 console.log("  deepseek: no dot (non-CPA)");
-console.log("  settings card registered:", card.def.name + "#" + card.def.id);
+console.log("  settings card registered:", card.def.name + "#" + card.def.key);
+console.log("  collapsed header: health dot ok / body hidden; pool peak:", peak, "/ timeout path exercised");

@@ -179,8 +179,12 @@ Point the plugin's manual instance input at the mock to see a full five-account 
 - **Just added a CPA instance and nothing shows up?** Hit **Refresh now** in the card — it re-fingerprints every provider base immediately instead of waiting out the one-hour probe cache.
 - **Stale numbers?** Numbers refresh on the configured interval; a failed refresh keeps the last good snapshot and says so on the card.
 - **Where are my keys stored?** In this browser's `localStorage` only. Quota requests go straight from the browser to each instance; the DSH host never sees your keys.
-
 - **Switching browsers?** Use **Export config / Import config** on the card to move instances and keys between browsers. The exported JSON is plaintext — store it carefully.
+
+## Community
+
+- Published & discussed on [LINUX DO](https://linux.do) — thanks to the community for the feedback.
+- Listed on [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) (entry PR [#3852](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/3852)); once merged, the plugin is installable from [dsh-market](https://github.com/dsh-market/dsh-market) inside DSH's settings.
 
 ## License
 

@@ -179,8 +179,12 @@ node tests/mock-cpa.mjs     # 可选：在 http://127.0.0.1:8317 起一个假 CP
 - **刚加了 CPA 实例但没反应？** 点卡片里的「立即刷新」——它会立刻重新探测所有地址，不必等一小时的探测缓存。
 - **数字不新鲜？** 按设定间隔自动刷新；刷新失败会保留上次成功数据并在卡片上说明。
 - **密钥存在哪？** 只存当前浏览器的 `localStorage`。额度请求由浏览器直达各实例，DSH 宿主完全接触不到你的密钥。
-
 - **换浏览器？** 用卡片里的「导出配置 / 导入配置」在浏览器之间迁移实例与密钥。导出的 JSON 是明文，注意保管。
+
+## 社区
+
+- 本插件在 [LINUX DO](https://linux.do) 社区首发与讨论，感谢佬们的反馈 🙏
+- 已投稿 [awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) 清单（[PR #3852](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/3852)），收录后可在 [dsh-market](https://github.com/dsh-market/dsh-market) 一键安装。
 
 ## 许可证
 

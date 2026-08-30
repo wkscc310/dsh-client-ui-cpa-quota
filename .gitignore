@@ -10,3 +10,4 @@ Thumbs.db
 *.p12
 *.secret
 *.token
+.mimosa/

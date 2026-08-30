@@ -59,10 +59,10 @@ Hover the ring next to the selected model for matching accounts, providers, plan
 
 ## Quick install
 
-The plugin declares a `dsh.bundle` manifest, so one command installs **and** activates it — no config editing:
+The plugin declares a `dsh.bundle` manifest and is published to npm, so one command installs **and** activates it — no config editing, no git, no build:
 
 ```sh
-dsh plugin --profile web add github:wkscc310/dsh-client-ui-cpa-quota
+dsh plugin --profile web add dsh-client-ui-cpa-quota
 ```
 
 Prefer the installer? It also handles networks where GitHub is flaky, falls back to copying when pnpm is unavailable, and migrates older installs:

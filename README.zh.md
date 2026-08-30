@@ -59,10 +59,10 @@
 
 ## 快速安装
 
-插件声明了 `dsh.bundle` manifest,一条命令即可安装**并自动激活**,无需手动编辑任何配置:
+插件声明了 `dsh.bundle` manifest 并已发布 npm,一条命令即可安装**并自动激活**——无需配置、无需 git、无需构建:
 
 ```sh
-dsh plugin --profile web add github:wkscc310/dsh-client-ui-cpa-quota
+dsh plugin --profile web add dsh-client-ui-cpa-quota
 ```
 
 也可以用安装脚本:它额外处理 GitHub 网络不稳、pnpm 不可用时回退复制、以及旧版安装的迁移:

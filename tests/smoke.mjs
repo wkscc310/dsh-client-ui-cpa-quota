@@ -33,6 +33,8 @@ function makeEl(tag) {
       list.push(listener);
       this.listeners.set(type, list);
     },
+    click() { this.dispatchEvent({ type: "click" }); },
+    scrollIntoView() {},
     removeEventListener(type, listener) {
       this.listeners.set(type, (this.listeners.get(type) ?? []).filter((l) => l !== listener));
     },
@@ -75,6 +77,7 @@ const documentStub = {
   documentElement: makeEl("html"),
   createElement: (tag) => makeEl(tag),
   createElementNS: (ns, tag) => makeEl(tag),
+  querySelector: () => null,
   querySelectorAll: () => [],
 };
 const realSetTimeout = setTimeout;
@@ -714,6 +717,55 @@ for (const shot of shots) {
     throw new Error("screenshots.json points at a missing file: " + shot);
   }
 }
+
+// --- ring click opens Settings → Plugins and expands the card ---
+const clicked = [];
+function makeButtonFixture(label) {
+  const b = makeEl("button");
+  b.textContent = label;
+  b.addEventListener("click", () => clicked.push(label));
+  return b;
+}
+const settingsFixture = makeButtonFixture("设置");
+const pluginsFixture = makeButtonFixture("插件");
+documentStub.querySelectorAll = (selector) => (selector === "button" ? [settingsFixture, pluginsFixture] : []);
+geminiDot.dispatchEvent({ type: "click" });
+await new Promise((r) => setTimeout(r, 600));
+if (!clicked.includes("设置") || !clicked.includes("插件")) throw new Error("ring click must walk 设置 → 插件: " + JSON.stringify(clicked));
+
+// --- config import/export ---
+globalThis.Blob = class { constructor(parts) { this.content = parts.join(""); } };
+globalThis.URL.createObjectURL = () => "blob:mock";
+globalThis.URL.revokeObjectURL = () => {};
+globalThis.FileReader = class {
+  readAsText(file) { this.result = file.__content; this.onload(); }
+};
+const createdElements = [];
+const realCreateElement = documentStub.createElement;
+documentStub.createElement = (tag) => { const el = realCreateElement(tag); createdElements.push(el); return el; };
+const hasLabel = (n, text) => Array.isArray(n.children) && n.children.some((c) => typeof c === "string" && c.includes(text));
+tree = renderComponent(cardComponent);
+const exportBtn = findInTree(tree, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "导出配置"))[0];
+if (!exportBtn) throw new Error("export button missing");
+exportBtn.props.onClick();
+const exportedAnchor = createdElements.find((el) => el.tagName === "A" && el.download === "dsh-cpa-quota-config.json");
+if (!exportedAnchor || !String(exportedAnchor.href).startsWith("blob:") || exportedAnchor.download !== "dsh-cpa-quota-config.json") throw new Error("export must download a dsh-cpa-quota-config.json blob");
+const importBtn = findInTree(tree, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "导入配置"))[0];
+if (!importBtn) throw new Error("import button missing");
+importBtn.props.onClick();
+const picker = createdElements.filter((el) => el.tagName === "INPUT").at(-1);
+if (picker === undefined || picker.type !== "file") throw new Error("import must open a file picker");
+picker.onchange();
+// picker.files[0] → FileReader stub reads file.__content — install a fake file
+// through the picker element.
+if (picker.files === undefined) {
+  Object.defineProperty(picker, "files", { value: [{ __content: JSON.stringify({ refreshMinutes: 7, instances: [{ baseURL: "https://imported.example/v1", managementKey: "imported-key" }] }) }] });
+}
+picker.onchange();
+await new Promise((r) => setTimeout(r, 30));
+const importedConfig = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:config"));
+if (!importedConfig.instances.some((i) => i.baseURL.includes("imported.example") && i.managementKey === "imported-key")) throw new Error("imported instance missing from config: " + JSON.stringify(importedConfig));
+if (importedConfig.refreshMinutes !== 7) throw new Error("imported refreshMinutes must apply, got " + importedConfig.refreshMinutes);
 
 // 额度快照被替换后,卡片下一次渲染必须换用新面板(非回归)
 console.log("SMOKE OK");

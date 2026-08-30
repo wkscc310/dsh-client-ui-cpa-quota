@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.2] - 2026-08-30
+
+### Changed
+
+- README: added a Community section crediting LINUX DO and the
+  awesome-dsh-plugin / dsh-market listing; removed the outdated
+  `settings-card.png` screenshot.
+- Release automation live: `v*` tags now test, publish to npm, and attach the
+  tarball to the GitHub Release.
+
 ## [0.4.1] - 2026-08-30
 
 ### Added

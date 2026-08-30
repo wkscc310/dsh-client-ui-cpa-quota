@@ -11,8 +11,14 @@
   "bugs": {
     "url": "https://github.com/wkscc310/dsh-client-ui-cpa-quota/issues"
   },
-  "keywords": ["dsh", "cliproxyapi", "quota", "openai", "antigravity"],
+  "keywords": ["dsh", "dsh-plugin", "cliproxyapi", "quota", "openai", "antigravity"],
   "type": "module",
+  "files": [
+    "lib/",
+    "cordis.patch.yml",
+    "screenshots.json",
+    "assets/screenshots/"
+  ],
   "scripts": {
     "test": "node tests/smoke.mjs",
     "check": "node --check lib/client.js && node --check lib/index.js",

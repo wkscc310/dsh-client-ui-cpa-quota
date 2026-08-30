@@ -180,6 +180,8 @@ Point the plugin's manual instance input at the mock to see a full five-account 
 - **Stale numbers?** Numbers refresh on the configured interval; a failed refresh keeps the last good snapshot and says so on the card.
 - **Where are my keys stored?** In this browser's `localStorage` only. Quota requests go straight from the browser to each instance; the DSH host never sees your keys.
 
+- **Switching browsers?** Use **Export config / Import config** on the card to move instances and keys between browsers. The exported JSON is plaintext — store it carefully.
+
 ## License
 
 [MIT](LICENSE)

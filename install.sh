@@ -133,21 +133,64 @@ if [ -L "$LEGACY_LINK" ] && [ "$installed" != "shared" ]; then
     say "removed legacy symlink: $LEGACY_LINK"
 fi
 
-# 3. Register the loader entry (idempotent). A fresh profile's patch file
-#    holds a literal `[]` placeholder — appending after it would produce an
-#    invalid two-document YAML file, so the placeholder is replaced instead.
-mkdir -p "$(dirname -- "$PATCH")"
-touch "$PATCH"
-if grep -q "name: ['\"]\?$NAME" "$PATCH"; then
-    say "patch entry already present in $PATCH"
-elif grep -v '^[[:space:]]*#' "$PATCH" | grep -v '^[[:space:]]*$' | grep -q '^\[\][[:space:]]*$'; then
-    tmp=$(mktemp "${TMPDIR:-/tmp}/$NAME-patch.XXXXXX")
-    awk -v name="$NAME" '!done && $0 ~ /^\[\][[:space:]]*$/ { printf "- insert:\n    - id: ui-cpa-quota\n      name: %s\n", name; done=1; next } { print }' "$PATCH" > "$tmp"
-    mv "$tmp" "$PATCH"
-    say "patch entry written into $PATCH (replaced the placeholder [])"
+# 3. Loader activation. The package declares a `dsh.bundle` manifest, so a
+#    successful `dsh plugin add` already joined the profile's bundle layers —
+#    a manual patch entry would insert the plugin twice. Migrate any entry a
+#    previous installer version wrote (our exact generated block is dropped;
+#    a hand-customized one is left alone with a warning). The copy fallback
+#    path still needs the manual entry, because nothing reconciled the
+#    bundle layer in that mode.
+if [ "$installed" = "dsh" ] && grep -q '"bundle"[[:space:]]*:' "$PLUGIN_DIR/package.json"; then
+    if [ -f "$PATCH" ]; then
+        tmp=$(mktemp "${TMPDIR:-/tmp}/$NAME-patch.XXXXXX")
+        status=0
+        awk -v name="$NAME" '
+            { line[NR] = $0 }
+            END {
+                dropped = 0; custom = 0; i = 1
+                while (i <= NR) {
+                    if (line[i] ~ /^[[:space:]]*- insert:[[:space:]]*$/ &&
+                        line[i+1] ~ /^[[:space:]]*- id: ui-cpa-quota[[:space:]]*$/ &&
+                        line[i+2] ~ ("^[[:space:]]*name: [\"'\'']?" name "[\"'\'']?[[:space:]]*$")) {
+                        boundary = (i + 3 > NR) || (line[i+3] == "") || (line[i+3] ~ /^[[:space:]]*(#|- )/)
+                        if (boundary) { dropped++; i += 3; continue }
+                        custom++
+                    }
+                    print line[i]; i += 1
+                }
+                exit (dropped > 0 ? 0 : (custom > 0 ? 3 : 1))
+            }' "$PATCH" > "$tmp" || status=$?
+        mv "$tmp" "$PATCH"
+        # A comments-only remainder parses as null, which the profile loader
+        # rejects ("must be a top-level YAML array") — keep it a valid empty list.
+        if ! grep -v '^[[:space:]]*#' "$PATCH" | grep -v '^[[:space:]]*$' | grep -q .; then
+            printf '\n[]\n' >> "$PATCH"
+        fi
+    else
+        status=1
+    fi
+    case $status in
+        0) say "bundle active via dsh plugin add — legacy manual patch entry removed from $PATCH" ;;
+        3) say "WARNING: $PATCH keeps a hand-customized ui-cpa-quota entry; the bundle layer now activates the plugin too — remove the manual entry to avoid double activation" ;;
+        *) say "bundle active via dsh plugin add — no manual patch entry needed" ;;
+    esac
 else
-    printf '\n- insert:\n    - id: ui-cpa-quota\n      name: %s\n' "$NAME" >> "$PATCH"
-    say "patch entry appended to $PATCH"
+    if [ "$installed" != "dsh" ]; then
+        mkdir -p "$(dirname -- "$PATCH")"
+        touch "$PATCH"
+    fi
+    if grep -q "name: ['\"]\?$NAME" "$PATCH" 2>/dev/null; then
+        say "patch entry already present in $PATCH"
+    elif [ -f "$PATCH" ] && grep -v '^[[:space:]]*#' "$PATCH" | grep -v '^[[:space:]]*$' | grep -q '^\[\][[:space:]]*$'; then
+        tmp=$(mktemp "${TMPDIR:-/tmp}/$NAME-patch.XXXXXX")
+        awk -v name="$NAME" '!done && $0 ~ /^\[\][[:space:]]*$/ { printf "- insert:\n    - id: ui-cpa-quota\n      name: %s\n", name; done=1; next } { print }' "$PATCH" > "$tmp"
+        mv "$tmp" "$PATCH"
+        say "patch entry written into $PATCH (replaced the placeholder [])"
+    else
+        [ -f "$PATCH" ] || touch "$PATCH"
+        printf '\n- insert:\n    - id: ui-cpa-quota\n      name: %s\n' "$NAME" >> "$PATCH"
+        say "patch entry appended to $PATCH"
+    fi
 fi
 
 say "done. Restart the DSH web host, then paste your management key in"

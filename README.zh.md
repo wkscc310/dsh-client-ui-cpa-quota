@@ -59,7 +59,13 @@
 
 ## 快速安装
 
-安装脚本会把插件放入 `~/.dsh/plugins`，通过 `dsh plugin --profile web add` 装入 Web profile（不可用时回退为复制到 profile 的 `node_modules`），并在 profile 的 `cordis.patch.yml` 中注册 loader 条目。
+插件声明了 `dsh.bundle` manifest,一条命令即可安装**并自动激活**,无需手动编辑任何配置:
+
+```sh
+dsh plugin --profile web add github:wkscc310/dsh-client-ui-cpa-quota
+```
+
+也可以用安装脚本:它额外处理 GitHub 网络不稳、pnpm 不可用时回退复制、以及旧版安装的迁移:
 
 ### Windows PowerShell
 
@@ -73,15 +79,15 @@ $p=Join-Path $env:TEMP 'dsh-cpa-install.ps1'; Invoke-WebRequest -UseBasicParsing
 curl -fsSL https://raw.githubusercontent.com/wkscc310/dsh-client-ui-cpa-quota/main/install.sh -o /tmp/dsh-cpa-install.sh && sh /tmp/dsh-cpa-install.sh
 ```
 
-重启 DSH Web 宿主，打开：
+重启 DSH Web 宿主,打开:
 
 ```text
 设置 → 插件 → CliProxyAPI 额度
 ```
 
-展开卡片，填入每个实例的 management key，然后重新打开模型选择器即可看到圆环。
+展开卡片,填入每个实例的 management key,然后重新打开模型选择器即可看到圆环。
 
-> 插件以「普通依赖 + loader 条目」方式安装（它是 UI 插件，不是 `dsh.bundle`），因此 `dsh plugin add` 时的 `declares no dsh.bundle` 警告属正常现象。更新插件后请重新运行安装命令。
+> 更新插件后,重新运行同一条 `dsh plugin add`(或安装脚本)并重启宿主即可。
 
 ## 手动安装
 
@@ -106,7 +112,7 @@ mkdir -p "$HOME/.dsh/profiles/web/node_modules"
 cp -R "$HOME/.dsh/plugins/dsh-client-ui-cpa-quota" "$HOME/.dsh/profiles/web/node_modules/"
 ```
 
-然后在 `~/.dsh/profiles/web/cordis.patch.yml`（Windows 为 `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`）加入 loader 条目。如果文件还是全新 profile 的占位 `[]`，请将其替换为：
+复制安装不会自动激活 bundle 层，需要在 `~/.dsh/profiles/web/cordis.patch.yml`（Windows 为 `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`）手动加入 loader 条目。如果文件还是全新 profile 的占位 `[]`，请将其替换为：
 
 ```yaml
 - insert:

@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-08-30
+
+### Added
+
+- **One-command install**: the plugin now declares a `dsh.bundle` manifest
+  (`cordis.patch.yml` in the package root), so
+  `dsh plugin --profile web add github:wkscc310/dsh-client-ui-cpa-quota`
+  installs and activates it in one step — no config editing, and no
+  `declares no dsh.bundle` warning.
+- `screenshots.json` so storefronts such as
+  [dsh-market](https://github.com/dsh-market/dsh-market) can show
+  AppStore-style screenshots.
+
+### Changed
+
+- The installers recognize bundle mode: `dsh plugin add` activation skips the
+  manual loader entry, and a legacy manual entry written by older installers
+  is migrated away automatically (a hand-customized entry is kept with a
+  warning). The copy fallback still writes the entry, because nothing
+  reconciles the bundle layer in that mode.
+
 ## [0.3.0] - 2026-08-30
 
 ### Added

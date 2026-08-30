@@ -148,36 +148,82 @@ if (($Installed -ne "shared") -and (Test-Path -LiteralPath $LegacyLink)) {
     }
 }
 
-# 3. Register the loader entry (idempotent). A fresh profile's patch file
-#    holds a literal `[]` placeholder — appending after it would produce an
-#    invalid two-document YAML file, so the placeholder is replaced instead.
+# 3. Loader activation. The package declares a `dsh.bundle` manifest, so a
+#    successful `dsh plugin add` already joined the profile's bundle layers —
+#    a manual patch entry would insert the plugin twice. Migrate any entry a
+#    previous installer version wrote (our exact generated block is dropped;
+#    a hand-customized one is left alone with a warning). The copy fallback
+#    path still needs the manual entry, because nothing reconciled the
+#    bundle layer in that mode.
 $patchDir = Split-Path -Parent $Patch
 New-Item -ItemType Directory -Force -Path $patchDir | Out-Null
-if (-not (Test-Path $Patch)) { New-Item -ItemType File -Path $Patch | Out-Null }
-$content = Get-Content -Raw $Patch
-if ($content -match [regex]::Escape($Name)) {
-    Say "patch entry already present in $Patch"
-}
-else {
-    $lines = Get-Content $Patch
-    $effective = @($lines | Where-Object { $_.Trim() -ne "" -and -not $_.TrimStart().StartsWith("#") })
-    if ($effective.Count -eq 1 -and $effective[0].Trim() -eq "[]") {
-        $replaced = foreach ($line in $lines) {
-            if ($line.Trim() -eq "[]") {
-                "- insert:"
-                "    - id: ui-cpa-quota"
-                "      name: $Name"
+$bundleMode = ($Installed -eq "dsh") -and (Select-String -LiteralPath (Join-Path $PluginDir "package.json") -Pattern '"bundle"\s*:' -Quiet)
+if ($bundleMode) {
+    if (Test-Path -LiteralPath $Patch) {
+        $lines = Get-Content -LiteralPath $Patch
+        $out = New-Object System.Collections.Generic.List[string]
+        $dropped = 0
+        $custom = 0
+        $i = 0
+        while ($i -lt $lines.Count) {
+            $l1 = $lines[$i]
+            $l2 = if ($i + 1 -lt $lines.Count) { $lines[$i + 1] } else { $null }
+            $l3 = if ($i + 2 -lt $lines.Count) { $lines[$i + 2] } else { $null }
+            if (($l1 -match '^\s*- insert:\s*$') -and ($l2 -match '^\s*- id: ui-cpa-quota\s*$') -and ($l3 -match "^\s*name: [`"']?$Name[`"']?\s*$")) {
+                $l4 = if ($i + 3 -lt $lines.Count) { $lines[$i + 3] } else { $null }
+                $boundary = ($null -eq $l4) -or ($l4.Trim() -eq "") -or ($l4 -match '^\s*(#|- )')
+                if ($boundary) { $dropped++; $i += 3; continue }
+                $custom++
             }
-            else { $line }
+            $out.Add($lines[$i])
+            $i += 1
         }
-        [System.IO.File]::WriteAllLines($Patch, @($replaced), (New-Object System.Text.UTF8Encoding($false)))
-        Say "patch entry written into $Patch (replaced the placeholder [])"
+        if ($dropped -gt 0) {
+            # A comments-only remainder parses as null, which the profile loader
+            # rejects — keep the file a valid empty list.
+            $effective = @($out | Where-Object { $_.Trim() -ne "" -and -not $_.TrimStart().StartsWith("#") })
+            if ($effective.Count -eq 0) { $out.Add("[]") }
+            [System.IO.File]::WriteAllLines($Patch, $out, (New-Object System.Text.UTF8Encoding($false)))
+            Say "bundle active via dsh plugin add - legacy manual patch entry removed from $Patch"
+        }
+        elseif ($custom -gt 0) {
+            Say "WARNING: $Patch keeps a hand-customized ui-cpa-quota entry; the bundle layer now activates the plugin too - remove the manual entry to avoid double activation"
+        }
+        else {
+            Say "bundle active via dsh plugin add - no manual patch entry needed"
+        }
     }
     else {
-        $entry = "`n- insert:`n    - id: ui-cpa-quota`n      name: $Name`n"
-        # Append UTF-8 without BOM; DSH patch files are expected to be UTF-8.
-        [System.IO.File]::AppendAllText($Patch, $entry, (New-Object System.Text.UTF8Encoding($false)))
-        Say "patch entry appended to $Patch"
+        Say "bundle active via dsh plugin add - no manual patch entry needed"
+    }
+}
+else {
+    if (-not (Test-Path $Patch)) { New-Item -ItemType File -Path $Patch | Out-Null }
+    $content = Get-Content -Raw $Patch
+    if ($content -match [regex]::Escape($Name)) {
+        Say "patch entry already present in $Patch"
+    }
+    else {
+        $lines = Get-Content $Patch
+        $effective = @($lines | Where-Object { $_.Trim() -ne "" -and -not $_.TrimStart().StartsWith("#") })
+        if ($effective.Count -eq 1 -and $effective[0].Trim() -eq "[]") {
+            $replaced = foreach ($line in $lines) {
+                if ($line.Trim() -eq "[]") {
+                    "- insert:"
+                    "    - id: ui-cpa-quota"
+                    "      name: $Name"
+                }
+                else { $line }
+            }
+            [System.IO.File]::WriteAllLines($Patch, @($replaced), (New-Object System.Text.UTF8Encoding($false)))
+            Say "patch entry written into $Patch (replaced the placeholder [])"
+        }
+        else {
+            $entry = "`n- insert:`n    - id: ui-cpa-quota`n      name: $Name`n"
+            # Append UTF-8 without BOM; DSH patch files are expected to be UTF-8.
+            [System.IO.File]::AppendAllText($Patch, $entry, (New-Object System.Text.UTF8Encoding($false)))
+            Say "patch entry appended to $Patch"
+        }
     }
 }
 

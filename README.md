@@ -59,7 +59,13 @@ Hover the ring next to the selected model for matching accounts, providers, plan
 
 ## Quick install
 
-The installer places the plugin under `~/.dsh/plugins`, materializes it into the Web profile with `dsh plugin --profile web add` (falling back to copying it into the profile's `node_modules`), and registers the loader entry in the profile's `cordis.patch.yml`.
+The plugin declares a `dsh.bundle` manifest, so one command installs **and** activates it — no config editing:
+
+```sh
+dsh plugin --profile web add github:wkscc310/dsh-client-ui-cpa-quota
+```
+
+Prefer the installer? It also handles networks where GitHub is flaky, falls back to copying when pnpm is unavailable, and migrates older installs:
 
 ### Windows PowerShell
 
@@ -81,7 +87,7 @@ Settings → Plugins → CliProxyAPI Quota
 
 Expand the card, paste the management key for each instance, and reopen the model picker.
 
-> The plugin installs as a plain dependency plus a loader entry (it is a UI plugin, not a `dsh.bundle`), so the `declares no dsh.bundle` warning during `dsh plugin add` is expected. Re-run the installer after updates.
+> After updates, just run the same `dsh plugin add` (or the installer) again and restart the host.
 
 ## Manual install
 
@@ -106,7 +112,7 @@ mkdir -p "$HOME/.dsh/profiles/web/node_modules"
 cp -R "$HOME/.dsh/plugins/dsh-client-ui-cpa-quota" "$HOME/.dsh/profiles/web/node_modules/"
 ```
 
-Add the loader entry to `~/.dsh/profiles/web/cordis.patch.yml` (Windows: `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`). If the file still contains the fresh-profile placeholder `[]`, replace it with the entry:
+A copy install does not activate the bundle layer, so the loader entry must be added by hand to `~/.dsh/profiles/web/cordis.patch.yml` (Windows: `%USERPROFILE%\.dsh\profiles\web\cordis.patch.yml`). If the file still contains the fresh-profile placeholder `[]`, replace it with the entry:
 
 ```yaml
 - insert:

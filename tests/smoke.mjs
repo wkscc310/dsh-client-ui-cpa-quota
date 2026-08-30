@@ -697,6 +697,24 @@ mod.apply(ctx, { instances: [{ baseURL: "https://hang2.example/v1", managementKe
 await new Promise((r) => setTimeout(r, 300));
 if (!apiCalls.some((c) => c.url.includes("hang2.example") && c.url.includes("auth-files"))) throw new Error("refresh cycle wedged after a timeout — later refreshes never ran");
 
+// --- packaging contract (dsh plugin add / awesome-dsh-plugin listing) ---
+// `dsh.client` alone is NOT installable — the listing and `dsh plugin add`
+// both key off the `dsh.bundle` manifest, so a regression here is fatal.
+const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
+if (pkg.dsh?.bundle?.patch === undefined) throw new Error("package.json must declare dsh.bundle.patch — dsh.client alone is not installable via dsh plugin add");
+if (pkg.dsh?.client?.platform !== "web") throw new Error("dsh.client.platform=web must stay declared alongside the bundle");
+const bundlePatch = readFileSync(new URL("../" + pkg.dsh.bundle.patch, import.meta.url), "utf8");
+if (!bundlePatch.includes("id: ui-cpa-quota") || !bundlePatch.includes("name: dsh-client-ui-cpa-quota")) throw new Error("bundle patch must insert the ui-cpa-quota loader entry");
+const shots = JSON.parse(readFileSync(new URL("../screenshots.json", import.meta.url), "utf8"));
+if (!Array.isArray(shots) || shots.length < 1 || shots.length > 8) throw new Error("screenshots.json must list 1-8 image paths");
+for (const shot of shots) {
+  try {
+    readFileSync(new URL("../" + shot, import.meta.url));
+  } catch {
+    throw new Error("screenshots.json points at a missing file: " + shot);
+  }
+}
+
 // 额度快照被替换后,卡片下一次渲染必须换用新面板(非回归)
 console.log("SMOKE OK");
 console.log("  gemini dot:", geminiDot.getAttribute("data-cpa-level"), "@", geminiDot.getAttribute("data-cpa-base"));

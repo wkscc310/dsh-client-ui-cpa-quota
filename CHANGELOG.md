@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-08-30
+
+### Added
+
+- Clicking a quota ring opens Settings → Plugins with the CliProxyAPI card
+  expanded (best-effort; quietly does nothing when a surface is missing).
+- Config **export/import** on the settings card: instances and keys move
+  between browsers as a JSON file. Imported entries are normalized (valid
+  instances only, `refreshMinutes` clamped) before replacing the config.
+- Release automation: pushing a `v*` tag runs the tests, publishes to npm
+  (`NPM_TOKEN` repository secret required) and attaches the packed tarball to
+  the GitHub Release.
+
 ## [0.4.0] - 2026-08-30
 
 ### Added

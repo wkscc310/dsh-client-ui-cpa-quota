@@ -1,0 +1,39 @@
+# Release automation: pushing a v* tag runs the tests, publishes the package
+# to npm, and attaches the packed tarball to the GitHub Release.
+#
+# One-time setup: add an npm Granular Access Token (with publish permission
+# for dsh-client-ui-cpa-quota) as the repository secret NPM_TOKEN
+# (Settings → Secrets and variables → Actions).
+name: Release
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://registry.npmjs.org"
+      - name: Test
+        run: |
+          node --check lib/client.js
+          node --check lib/index.js
+          node tests/smoke.mjs
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Pack tarball
+        run: npm pack
+      - name: Attach tarball to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dsh-client-ui-cpa-quota-*.tgz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

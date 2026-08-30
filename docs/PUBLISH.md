@@ -40,6 +40,11 @@ git tag vX.Y.Z
 git push origin main vX.Y.Z
 ```
 
+Pushing a `v*` tag also triggers `.github/workflows/release.yml`: it runs the
+tests, publishes to npm (`NPM_TOKEN` repository secret required) and attaches
+the packed tarball to the GitHub Release — the manual steps below then reduce
+to writing the release notes.
+
 Then create a GitHub Release for the tag and paste the matching
 `CHANGELOG.md` section as the notes.
 

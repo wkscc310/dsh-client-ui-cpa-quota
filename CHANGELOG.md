@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-08-31
+
+### Fixed
+
+- **Codex "missing chatgpt_account_id"**: the ChatGPT account id is now also
+  read from `tokens.account_id` / `account_id` (the canonical field in
+  current CPA auth files) in addition to the JWT `id_token` copies, and an
+  account with no recoverable id is still probed — without the account
+  header — instead of failing outright.
+- **Rings sometimes missing**: the CLIProxyAPI fingerprint probe now has a
+  10s timeout (a hung request used to delay ring creation indefinitely), and
+  an unreachable/unknown verdict is retried after 2 minutes instead of being
+  cached for an hour — one transient network failure no longer hides the
+  ring until the next hour.
+- **Tooltip showed every account**: account filtering now falls back to the
+  DSH provider id when the model name reveals no family (custom route
+  names), recognizes more families (qwen, iflow, glm, deepseek), and — only
+  when the family truly cannot be determined — lists every usable account
+  with an explicit hint instead of silently doing so.
+
 ## [0.4.2] - 2026-08-30
 
 ### Changed

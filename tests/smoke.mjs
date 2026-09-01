@@ -221,16 +221,25 @@ const PROVIDERS = {
   openai: { baseURL: "https://cpa-fixture.example.test/v1", models: [
     { id: "gemini-3.7-flash-high", name: "gemini-3.7-flash-high" },
     { id: "gpt-5.5", name: "gpt-5.5" },
+    { id: "super-model-x", name: "super-model-x" },
   ] },
+  neutral: { baseURL: "https://cpa-fixture.example.test/v1", models: [{ id: "another-model-y", name: "another-model-y" }] },
   cpagw: { baseURL: "https://other-cpa.example/v1", models: [{ id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" }] },
   "deepseek-official": { baseURL: "https://api.deepseek.example/v1", models: [{ id: "DeepSeek-V4-Flash", name: "DeepSeek V4 Flash" }] },
+  flake: { baseURL: "https://flake.example/v1", models: [{ id: "flake-model", name: "flake-model" }] },
 };
 
 const authFiles = {
   files: [
     {
+      // BUG 2 regression: no id_token at all — the id lives in tokens.account_id.
       auth_index: "idx-1", name: "codex-acc", provider: "codex", status: "available",
-      id_token: `x.${Buffer.from(JSON.stringify({ chatgpt_account_id: "acct-1" })).toString("base64url")}.y`,
+      tokens: { account_id: "acct-1" },
+    },
+    {
+      // BUG 2 regression: no usable id anywhere — the probe must still run,
+      // just without the Chatgpt-Account-Id header.
+      auth_index: "idx-8", name: "codex-bare", provider: "codex", status: "available",
     },
     {
       auth_index: "idx-2", name: "ag-acc", provider: "antigravity", status: "available",
@@ -262,6 +271,9 @@ globalThis.fetch = async (url, init = {}) => {
     return { ok: true, status: 200, text: async () => JSON.stringify(authFiles) };
   }
   if (u.endsWith("/v0/management/usage-statistics-enabled")) {
+    // BUG 1 regression fixture: a base whose probe fails transiently must not
+    // be cached as unreachable for an hour.
+    if (u.includes("flake.example")) throw new Error("network down");
     if (u.includes("other-cpa.example")) {
       return { ok: false, status: 401, text: async () => JSON.stringify({ error: "invalid management key" }) };
     }
@@ -434,7 +446,9 @@ const ctx = {
         settings: { describe: async () => ({ result: { ok: true, value: { writable: true, namespaces: [
           { ns: "llm-pi-ai", value: { providers: {
             openai: PROVIDERS.openai,
+            neutral: PROVIDERS.neutral,
             cpagw: PROVIDERS.cpagw,
+            flake: PROVIDERS.flake,
           } }, user: {}, base: {} },
           { ns: "llm-deepseek", value: { baseURL: PROVIDERS["deepseek-official"].baseURL, models: PROVIDERS["deepseek-official"].models }, user: {}, base: {} },
         ] } } }) },
@@ -463,6 +477,13 @@ if (!authCall) {
 if (authCall.init.headers.Authorization !== "Bearer test-key") throw new Error("management key not sent");
 const codexCall = apiCalls.find((c) => c.init && String(c.init.body).includes("wham/usage"));
 if (!codexCall) throw new Error("codex usage probe missing");
+// BUG 2: the account id must come from tokens.account_id…
+const codexBody = JSON.parse(codexCall.init.body);
+if (codexBody.header["Chatgpt-Account-Id"] !== "acct-1") throw new Error("tokens.account_id must feed the Chatgpt-Account-Id header: " + JSON.stringify(codexBody.header));
+// …and an account with no usable id must still be probed, without the header.
+const codexBareCall = apiCalls.filter((c) => c.init && String(c.init.body).includes("wham/usage") && JSON.parse(c.init.body).auth_index === "idx-8")[0];
+if (!codexBareCall) throw new Error("id-less codex account was not probed");
+if (JSON.parse(codexBareCall.init.body).header["Chatgpt-Account-Id"] !== undefined) throw new Error("id-less account must not send a Chatgpt-Account-Id header");
 const agCall = apiCalls.find((c) => c.init && String(c.init.body).includes("retrieveUserQuotaSummary"));
 if (!agCall) throw new Error("antigravity quota summary probe missing");
 const agTierCall = apiCalls.find((c) => c.init && String(c.init.body).includes("loadCodeAssist"));
@@ -501,7 +522,9 @@ const geminiTrigger = makeTrigger("gemini-3.7-flash-high");
 const gptTrigger = makeTrigger("gpt-5.5");
 const claudeTrigger = makeTrigger("Claude Sonnet 4.6");
 const deepseekTrigger = makeTrigger("DeepSeek V4 Flash");
-documentStub.querySelectorAll = () => [geminiTrigger.children[0], gptTrigger.children[0], claudeTrigger.children[0], deepseekTrigger.children[0]];
+const superXTrigger = makeTrigger("super-model-x");
+const anotherYTrigger = makeTrigger("another-model-y");
+documentStub.querySelectorAll = () => [geminiTrigger.children[0], gptTrigger.children[0], claudeTrigger.children[0], deepseekTrigger.children[0], superXTrigger.children[0], anotherYTrigger.children[0]];
 apiCalls.length = 0;
 mod.apply(ctx, yamlConfig);
 await new Promise((r) => setTimeout(r, 600));
@@ -546,6 +569,35 @@ await new Promise((r) => setTimeout(r, 30));
 if (!treeText(tip).includes("ag-acc") || !treeText(tip).includes("ag-second")) throw new Error("GPT model did not select Antigravity's matching quota group");
 if (treeText(tip).includes("codex-acc") || treeText(tip).includes("claude-acc")) throw new Error("GPT model tooltip leaked unrelated provider accounts");
 
+// BUG 3: a model whose NAME reveals no family is filtered by the DSH
+// provider id (openai → GPT family): only Codex accounts may show.
+function ringOfTrigger(t) { return ringOf(t); }
+const superXDot = ringOfTrigger(superXTrigger);
+if (!superXDot) throw new Error("super-model-x (CPA openai provider) must get a ring");
+superXDot.dispatchEvent({ type: "mouseenter" });
+await new Promise((r) => setTimeout(r, 30));
+const superXText = treeText(tip);
+if (!superXText.includes("codex-acc") || !superXText.includes("codex-bare")) throw new Error("provider-hint filtering must keep codex accounts: " + superXText);
+if (superXText.includes("ag-acc") || superXText.includes("claude-acc") || superXText.includes("kimi-acc") || superXText.includes("xai-acc")) throw new Error("provider-hint filtering leaked other-provider accounts: " + superXText);
+if (superXText.includes("无法从模型名识别")) throw new Error("provider-hint path must not claim unknown family");
+
+// BUG 3: when BOTH signals fail, every usable account is listed and the
+// tooltip says so — no silent all-account dump.
+const anotherYDot = ringOfTrigger(anotherYTrigger);
+if (!anotherYDot) throw new Error("another-model-y (CPA neutral provider, unknown family) must get a ring");
+anotherYDot.dispatchEvent({ type: "mouseenter" });
+await new Promise((r) => setTimeout(r, 30));
+const anotherYText = treeText(tip);
+for (const acc of ["codex-acc", "codex-bare", "ag-acc", "claude-acc", "kimi-acc", "xai-acc"]) {
+  if (!anotherYText.includes(acc)) throw new Error("unknown-family fallback must list " + acc + ": " + anotherYText);
+}
+if (!anotherYText.includes("无法从模型名识别")) throw new Error("unknown-family tooltip must carry the all-accounts hint");
+if (anotherYText.includes("缺少")) throw new Error("no account may surface the missing-id error anymore");
+// The keyless other-cpa instance still shows the paste-key hint, not accounts.
+anotherYDot.dispatchEvent({ type: "mouseleave" });
+claudeDot.dispatchEvent({ type: "mouseenter" });
+await new Promise((r) => setTimeout(r, 30));
+
 // A React screen switch remounts the trigger. The existing ring should be
 // reused by model identity instead of disappearing until a later refresh.
 const replacement = makeTrigger("gemini-3.7-flash-high");
@@ -563,6 +615,20 @@ documentStub.querySelectorAll = () => [replacement.children[0], claudeTrigger.ch
 observers.at(-1)?.trigger();
 await new Promise((r) => setTimeout(r, 30));
 if (ringOf(replacement) !== null) throw new Error("non-CPA model retained an empty quota ring");
+
+// BUG 1: a transiently unreachable base retries quickly instead of staying
+// ring-less for an hour; confirmed verdicts keep the long cache. (Runs after
+// the DOM-pass assertions: this re-apply creates a fresh plugin instance.)
+const probeCache = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:probe.v2"));
+probeCache["flake.example"].at -= 2.5 * 60 * 1000;      // past the 2-minute retry TTL
+probeCache["cpa-fixture.example.test"].at -= 30 * 60 * 1000; // well within the 1h TTL
+windowStub.localStorage.setItem("dsh-cpa-quota:probe.v2", JSON.stringify(probeCache));
+apiCalls.length = 0;
+mod.apply(ctx, yamlConfig);
+await new Promise((r) => setTimeout(r, 600));
+const reProbes = apiCalls.filter((c) => c.url.includes("usage-statistics-enabled"));
+if (!reProbes.some((c) => c.url.includes("flake.example"))) throw new Error("unreachable base must be re-probed after the retry TTL");
+if (reProbes.some((c) => c.url.includes("cpa-fixture"))) throw new Error("confirmed CPA base must keep its 1h probe cache");
 
 // --- settings card render harness ---
 const cardComponent = card.component;

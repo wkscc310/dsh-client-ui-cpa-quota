@@ -222,6 +222,7 @@ const PROVIDERS = {
     { id: "gemini-3.7-flash-high", name: "gemini-3.7-flash-high" },
     { id: "gpt-5.5", name: "gpt-5.5" },
     { id: "super-model-x", name: "super-model-x" },
+    { id: "claude-opus-4-6", name: "claude-opus-4-6" },
   ] },
   neutral: { baseURL: "https://cpa-fixture.example.test/v1", models: [{ id: "another-model-y", name: "another-model-y" }] },
   cpagw: { baseURL: "https://other-cpa.example/v1", models: [{ id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" }] },
@@ -261,7 +262,25 @@ const authFiles = {
     {
       auth_index: "idx-6", name: "xai-paid-acc", provider: "xai", status: "available",
     },
+    {
+      // OpenAI-compatible account: no models entry in the registry (older CPA)
+      // → falls back to family heuristics with the unknown-family hint.
+      auth_index: "idx-9", name: "compat-acc", provider: "openai-compatibility", status: "available",
+    },
   ],
+};
+
+// Per-account served models (CPA's routing registry), keyed by auth name —
+// what GET /v0/management/auth-files/models?name=… returns per account.
+const accountModels = {
+  "codex-acc": ["gpt-5.5"],
+  "codex-bare": ["gpt-5.5"],
+  "ag-acc": ["gemini-3.7-flash-high", "claude-opus-4-6"],
+  "ag-second": ["gemini-3.7-flash-high"],
+  "claude-acc": ["claude-sonnet-4-6", "claude-opus-4-6"],
+  "kimi-acc": ["kimi-k2"],
+  "xai-acc": ["grok-4"],
+  "xai-paid-acc": ["grok-4"],
 };
 const apiCalls = [];
 globalThis.fetch = async (url, init = {}) => {
@@ -269,6 +288,12 @@ globalThis.fetch = async (url, init = {}) => {
   apiCalls.push({ url: u, init });
   if (u.endsWith("/v0/management/auth-files")) {
     return { ok: true, status: 200, text: async () => JSON.stringify(authFiles) };
+  }
+  if (u.includes("/v0/management/auth-files/models")) {
+    const name = new URL(u).searchParams.get("name");
+    const list = accountModels[name];
+    if (!list) return { ok: false, status: 404, text: async () => "not found" };
+    return { ok: true, status: 200, text: async () => JSON.stringify({ models: list.map((id) => ({ id })) }) };
   }
   if (u.endsWith("/v0/management/usage-statistics-enabled")) {
     // BUG 1 regression fixture: a base whose probe fails transiently must not
@@ -566,37 +591,70 @@ if (!injectedStyle || !injectedStyle.textContent.includes(".cpa-q-arc{") || !inj
 
 gptDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));
-if (!treeText(tip).includes("ag-acc") || !treeText(tip).includes("ag-second")) throw new Error("GPT model did not select Antigravity's matching quota group");
-if (treeText(tip).includes("codex-acc") || treeText(tip).includes("claude-acc")) throw new Error("GPT model tooltip leaked unrelated provider accounts");
+// With the per-account model registry, gpt-5.5 resolves EXACTLY to the two
+// Codex accounts that declare it; Antigravity (which declares gemini /
+// claude-opus only) is excluded — that precision is the point of the fix.
+if (!treeText(tip).includes("codex-acc") || !treeText(tip).includes("codex-bare")) throw new Error("gpt-5.5 must resolve to the codex accounts that declare it: " + treeText(tip));
+if (treeText(tip).includes("ag-acc") || treeText(tip).includes("claude-acc") || treeText(tip).includes("kimi-acc")) throw new Error("gpt-5.5 tooltip leaked accounts that do not declare the model");
 
-// BUG 3: a model whose NAME reveals no family is filtered by the DSH
-// provider id (openai → GPT family): only Codex accounts may show.
+// A model whose NAME reveals no family falls back to the DSH provider id —
+// but the registry still rules: nothing declares super-model-x, so the
+// tooltip must say "no matching" instead of listing guesses.
 function ringOfTrigger(t) { return ringOf(t); }
 const superXDot = ringOfTrigger(superXTrigger);
 if (!superXDot) throw new Error("super-model-x (CPA openai provider) must get a ring");
 superXDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));
 const superXText = treeText(tip);
-if (!superXText.includes("codex-acc") || !superXText.includes("codex-bare")) throw new Error("provider-hint filtering must keep codex accounts: " + superXText);
-if (superXText.includes("ag-acc") || superXText.includes("claude-acc") || superXText.includes("kimi-acc") || superXText.includes("xai-acc")) throw new Error("provider-hint filtering leaked other-provider accounts: " + superXText);
-if (superXText.includes("无法从模型名识别")) throw new Error("provider-hint path must not claim unknown family");
+if (!superXText.includes("没有匹配的厂商额度") && !superXText.includes("no matching provider quota")) throw new Error("undeclared model must report no matching account: " + superXText);
+if (superXText.includes("codex-acc") || superXText.includes("ag-acc")) throw new Error("undeclared model must not list accounts whose registry excludes it");
 
-// BUG 3: when BOTH signals fail, every usable account is listed and the
-// tooltip says so — no silent all-account dump.
+// BUG 3: when BOTH signals fail, the accounts that cannot be excluded are
+// listed with an explicit hint — no silent all-account dump.
 const anotherYDot = ringOfTrigger(anotherYTrigger);
 if (!anotherYDot) throw new Error("another-model-y (CPA neutral provider, unknown family) must get a ring");
 anotherYDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));
 const anotherYText = treeText(tip);
-for (const acc of ["codex-acc", "codex-bare", "ag-acc", "claude-acc", "kimi-acc", "xai-acc"]) {
-  if (!anotherYText.includes(acc)) throw new Error("unknown-family fallback must list " + acc + ": " + anotherYText);
-}
+if (!anotherYText.includes("compat-acc")) throw new Error("unknown-family fallback must list the compat account (no registry to exclude it): " + anotherYText);
+if (anotherYText.includes("codex-acc") || anotherYText.includes("ag-acc") || anotherYText.includes("kimi-acc")) throw new Error("accounts declaring other models must stay excluded: " + anotherYText);
 if (!anotherYText.includes("无法从模型名识别")) throw new Error("unknown-family tooltip must carry the all-accounts hint");
 if (anotherYText.includes("缺少")) throw new Error("no account may surface the missing-id error anymore");
 // The keyless other-cpa instance still shows the paste-key hint, not accounts.
 anotherYDot.dispatchEvent({ type: "mouseleave" });
 claudeDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));
+if (!treeText(tip).includes("management key") && !treeText(tip).includes("设置")) throw new Error("keyless instance tooltip must show the paste-key hint: " + treeText(tip));
+
+// Cross-channel: claude-opus-4-6 is declared by BOTH Antigravity accounts and
+// the Claude OAuth account — CPA load-balances between the channels, so all
+// three must appear, each with its channel badge.
+const claudeOpusTrigger = makeTrigger("claude-opus-4-6");
+const anotherOpusTrigger = makeTrigger("claude-opus-4-6");
+documentStub.querySelectorAll = () => [geminiTrigger.children[0], gptTrigger.children[0], claudeOpusTrigger.children[0], claudeTrigger.children[0], deepseekTrigger.children[0], superXTrigger.children[0], anotherYTrigger.children[0], anotherOpusTrigger.children[0]];
+observers.at(-1)?.trigger();
+await new Promise((r) => setTimeout(r, 30));
+const opusDotA = ringOfTrigger(claudeOpusTrigger);
+const opusDotB = ringOfTrigger(anotherOpusTrigger);
+if (!opusDotA || !opusDotB) throw new Error("claude-opus rings missing on both CPA-backed providers");
+opusDotA.dispatchEvent({ type: "mouseenter" });
+await new Promise((r) => setTimeout(r, 30));
+const opusTextA = treeText(tip);
+// Precise matching: ag-acc and claude-acc both DECLARE claude-opus-4-6 (both
+// channels shown with their badges); ag-second's registry lists gemini only,
+// so it is correctly excluded.
+for (const acc of ["ag-acc", "claude-acc"]) {
+  if (!opusTextA.includes(acc)) throw new Error("cross-channel claude model must show both channels' accounts, missing " + acc + ": " + opusTextA);
+}
+if (opusTextA.includes("ag-second") || opusTextA.includes("codex-acc") || opusTextA.includes("kimi-acc") || opusTextA.includes("xai-acc")) throw new Error("cross-channel tooltip leaked accounts that do not declare the model: " + opusTextA);
+opusDotA.dispatchEvent({ type: "mouseleave" });
+opusDotB.dispatchEvent({ type: "mouseenter" });
+await new Promise((r) => setTimeout(r, 30));
+const opusTextB = treeText(tip);
+for (const acc of ["ag-acc", "claude-acc"]) {
+  if (!opusTextB.includes(acc)) throw new Error("second provider's claude-opus tooltip missing " + acc + ": " + opusTextB);
+}
+opusDotB.dispatchEvent({ type: "mouseleave" });
 
 // A React screen switch remounts the trigger. The existing ring should be
 // reused by model identity instead of disappearing until a later refresh.

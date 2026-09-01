@@ -180,7 +180,7 @@ Point the plugin's manual instance input at the mock to see a full five-account 
 - **Stale numbers?** Numbers refresh on the configured interval; a failed refresh keeps the last good snapshot and says so on the card.
 - **Where are my keys stored?** In this browser's `localStorage` only. Quota requests go straight from the browser to each instance; the DSH host never sees your keys.
 - **Switching browsers?** Use **Export config / Import config** on the card to move instances and keys between browsers. The exported JSON is plaintext — store it carefully.
-- **Tooltip shows every account?** The tooltip filters accounts by the selected model's family — from the model name first, then the DSH provider id. If a custom route name reveals neither, the plugin cannot know which account CPA will route the request to, so it lists every usable account and says so in the tooltip.
+- **Tooltip shows every account?** The tooltip filters accounts by what each one actually serves, using CPA's own per-auth model registry first, then the model name and the DSH provider id as fallbacks. Only when a model matches no registry entry and no family signal can it be pinned down does the tooltip list the remaining usable accounts — and it says so when it does.
 
 ## Community
 

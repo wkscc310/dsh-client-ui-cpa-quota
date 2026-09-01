@@ -4,6 +4,28 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] - 2026-09-01
+
+### Added
+
+- **Exact per-account model matching**: the plugin now reads CPA's per-auth
+  model registry (`GET /v0/management/auth-files/models?name=…`, the same
+  table CPA's own router uses) and shows only the accounts that declare the
+  selected model — so with multiple accounts on the same channel, all of them
+  appear, while accounts on other channels that do not serve the model stay
+  out. A declared list without the model excludes that account from every
+  fallback; results are cached per account (10 min) so refreshes stay cheap.
+- **Interactions API** provider recognized as its own channel (badge,
+  family fallback for gemini/claude/gpt) without touching Antigravity, and
+  **Vertex** accounts match Gemini/Claude families.
+
+### Fixed
+
+- **Codex accounts on current CPA builds**: the management API exposes
+  `id_token` as an already-parsed claims object, which the plugin failed to
+  read — the actual cause of the "missing chatgpt_account_id" errors. The
+  claims object, `tokens.account_id`, and the header-less retry all work now.
+
 ## [0.5.0] - 2026-09-01
 
 ### Fixed

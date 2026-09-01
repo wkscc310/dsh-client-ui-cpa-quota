@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-09-01
+
+### Fixed
+
+- **Stricter registry matching**: the per-account model match no longer
+  treats a selected model as served when it merely extends a declared id in
+  reverse — an account declaring only `gpt-5.5-mini` does not serve
+  `gpt-5.5`.
+- **Gray ring when every match is disabled**: if all accounts matching the
+  selected model are disabled/unavailable, the ring is now gray (pending)
+  instead of promising green quota.
+
 ## [0.6.0] - 2026-09-01
 
 ### Added

@@ -274,7 +274,7 @@ const authFiles = {
 // what GET /v0/management/auth-files/models?name=… returns per account.
 const accountModels = {
   "codex-acc": ["gpt-5.5"],
-  "codex-bare": ["gpt-5.5"],
+  "codex-bare": ["gpt-5.5-mini"],
   "ag-acc": ["gemini-3.7-flash-high", "claude-opus-4-6"],
   "ag-second": ["gemini-3.7-flash-high"],
   "claude-acc": ["claude-sonnet-4-6", "claude-opus-4-6"],
@@ -591,11 +591,12 @@ if (!injectedStyle || !injectedStyle.textContent.includes(".cpa-q-arc{") || !inj
 
 gptDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));
-// With the per-account model registry, gpt-5.5 resolves EXACTLY to the two
-// Codex accounts that declare it; Antigravity (which declares gemini /
-// claude-opus only) is excluded — that precision is the point of the fix.
-if (!treeText(tip).includes("codex-acc") || !treeText(tip).includes("codex-bare")) throw new Error("gpt-5.5 must resolve to the codex accounts that declare it: " + treeText(tip));
-if (treeText(tip).includes("ag-acc") || treeText(tip).includes("claude-acc") || treeText(tip).includes("kimi-acc")) throw new Error("gpt-5.5 tooltip leaked accounts that do not declare the model");
+// With the per-account model registry, gpt-5.5 resolves EXACTLY to the Codex
+// account that declares it. codex-bare declares only gpt-5.5-mini — the
+// reverse match must NOT pull it in — and Antigravity (gemini/claude-opus
+// only) is excluded. That precision is the point of the fix.
+if (!treeText(tip).includes("codex-acc")) throw new Error("gpt-5.5 must resolve to the codex account that declares it: " + treeText(tip));
+if (treeText(tip).includes("codex-bare") || treeText(tip).includes("ag-acc") || treeText(tip).includes("claude-acc") || treeText(tip).includes("kimi-acc")) throw new Error("gpt-5.5 tooltip leaked accounts that do not declare the model");
 
 // A model whose NAME reveals no family falls back to the DSH provider id —
 // but the registry still rules: nothing declares super-model-x, so the
@@ -677,16 +678,27 @@ if (ringOf(replacement) !== null) throw new Error("non-CPA model retained an emp
 // BUG 1: a transiently unreachable base retries quickly instead of staying
 // ring-less for an hour; confirmed verdicts keep the long cache. (Runs after
 // the DOM-pass assertions: this re-apply creates a fresh plugin instance.)
+// Same pass: with the only matching account disabled, the ring must go GRAY
+// (pending) instead of promising green quota.
 const probeCache = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:probe.v2"));
 probeCache["flake.example"].at -= 2.5 * 60 * 1000;      // past the 2-minute retry TTL
 probeCache["cpa-fixture.example.test"].at -= 30 * 60 * 1000; // well within the 1h TTL
 windowStub.localStorage.setItem("dsh-cpa-quota:probe.v2", JSON.stringify(probeCache));
+authFiles.files[0].disabled = true;
 apiCalls.length = 0;
 mod.apply(ctx, yamlConfig);
 await new Promise((r) => setTimeout(r, 600));
 const reProbes = apiCalls.filter((c) => c.url.includes("usage-statistics-enabled"));
 if (!reProbes.some((c) => c.url.includes("flake.example"))) throw new Error("unreachable base must be re-probed after the retry TTL");
 if (reProbes.some((c) => c.url.includes("cpa-fixture"))) throw new Error("confirmed CPA base must keep its 1h probe cache");
+const gptLateTrigger = makeTrigger("gpt-5.5");
+documentStub.querySelectorAll = () => [gptLateTrigger.children[0]];
+observers.at(-1)?.trigger();
+await new Promise((r) => setTimeout(r, 30));
+const gptLateRing = ringOf(gptLateTrigger);
+if (!gptLateRing) throw new Error("late gpt ring missing");
+if (gptLateRing.getAttribute("data-cpa-level") !== "pending") throw new Error("all-disabled match must yield a gray ring, got " + gptLateRing.getAttribute("data-cpa-level"));
+authFiles.files[0].disabled = false;
 
 // --- settings card render harness ---
 const cardComponent = card.component;

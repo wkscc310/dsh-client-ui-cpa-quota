@@ -282,12 +282,29 @@ const accountModels = {
   "xai-acc": ["grok-4"],
   "xai-paid-acc": ["grok-4"],
 };
+
+// Usage-queue records: the ONLY per-request source carrying auth_index +
+// model + timestamp (the ledger's raw input). codex-acc used gpt-5.5 five
+// minutes ago (→ in use), ag-acc served gemini 30 hours ago (→ outside the
+// 24h window, falls back to the registry tier). Timestamps are FIXED at
+// module load — real CPA records carry the original request time, so replay
+// must produce identical fingerprints for the ledger's dedupe.
+const usageQueueAt = Date.now();
+function usageQueueFixture() {
+  return [
+    { timestamp: new Date(usageQueueAt - 5 * 60000).toISOString(), auth_index: "idx-1", model: "gpt-5.5", failed: false, tokens: { total_tokens: 1234 } },
+    { timestamp: new Date(usageQueueAt - 30 * 3600000).toISOString(), auth_index: "idx-2", model: "gemini-3.7-flash-high", failed: false, tokens: { total_tokens: 5000 } },
+  ];
+}
 const apiCalls = [];
 globalThis.fetch = async (url, init = {}) => {
   const u = String(url);
   apiCalls.push({ url: u, init });
   if (u.endsWith("/v0/management/auth-files")) {
     return { ok: true, status: 200, text: async () => JSON.stringify(authFiles) };
+  }
+  if (u.includes("/v0/management/usage-queue")) {
+    return { ok: true, status: 200, text: async () => JSON.stringify(usageQueueFixture()) };
   }
   if (u.includes("/v0/management/auth-files/models")) {
     const name = new URL(u).searchParams.get("name");
@@ -299,6 +316,10 @@ globalThis.fetch = async (url, init = {}) => {
     // BUG 1 regression fixture: a base whose probe fails transiently must not
     // be cached as unreachable for an hour.
     if (u.includes("flake.example")) throw new Error("network down");
+    // Authenticated reads (management key) report the statistics toggle state.
+    if (init.headers && init.headers.Authorization) {
+      return { ok: true, status: 200, text: async () => JSON.stringify({ enabled: true, logging: true }) };
+    }
     if (u.includes("other-cpa.example")) {
       return { ok: false, status: 401, text: async () => JSON.stringify({ error: "invalid management key" }) };
     }
@@ -591,12 +612,22 @@ if (!injectedStyle || !injectedStyle.textContent.includes(".cpa-q-arc{") || !inj
 
 gptDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));
-// With the per-account model registry, gpt-5.5 resolves EXACTLY to the Codex
-// account that declares it. codex-bare declares only gpt-5.5-mini — the
-// reverse match must NOT pull it in — and Antigravity (gemini/claude-opus
-// only) is excluded. That precision is the point of the fix.
-if (!treeText(tip).includes("codex-acc")) throw new Error("gpt-5.5 must resolve to the codex account that declares it: " + treeText(tip));
-if (treeText(tip).includes("codex-bare") || treeText(tip).includes("ag-acc") || treeText(tip).includes("claude-acc") || treeText(tip).includes("kimi-acc")) throw new Error("gpt-5.5 tooltip leaked accounts that do not declare the model");
+// Tier 1 (usage ledger): gpt-5.5 was served by codex-acc five minutes ago —
+// the account shows with the "使用中" badge and a last-used note. codex-bare
+// declares only gpt-5.5-mini and has no recent gpt-5.5 traffic, so both the
+// registry and the ledger exclude it.
+if (!treeText(tip).includes("codex-acc")) throw new Error("gpt-5.5 must resolve to the codex account that declares and served it: " + treeText(tip));
+if (treeText(tip).includes("codex-bare") || treeText(tip).includes("ag-acc") || treeText(tip).includes("claude-acc") || treeText(tip).includes("kimi-acc")) throw new Error("gpt-5.5 tooltip leaked accounts that do not serve it: " + treeText(tip));
+if (!treeText(tip).includes("使用中")) throw new Error("in-use badge missing from the gpt-5.5 tooltip: " + treeText(tip));
+if (!treeText(tip).includes("分钟前")) throw new Error("last-used note missing from the in-use account: " + treeText(tip));
+
+// Ledger persistence: in-window events are kept (the 30h-old gemini event is
+// pruned by the 7-day rule only much later — here it must survive), and the
+// queue replay must not duplicate entries.
+const ledgerRaw = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:ledger:cpa-fixture.example.test"));
+if (!Array.isArray(ledgerRaw.ev) || ledgerRaw.ev.length !== 2) throw new Error("ledger must hold the 2 in-window events, got " + JSON.stringify(ledgerRaw.ev));
+const ledgerNames = new Set(ledgerRaw.ev.map((e) => e.a));
+if (ledgerNames.size !== 2 || !ledgerNames.has("codex-acc") || !ledgerNames.has("ag-acc")) throw new Error("ledger names wrong: " + JSON.stringify([...ledgerNames]));
 
 // A model whose NAME reveals no family falls back to the DSH provider id —
 // but the registry still rules: nothing declares super-model-x, so the
@@ -619,7 +650,7 @@ await new Promise((r) => setTimeout(r, 30));
 const anotherYText = treeText(tip);
 if (!anotherYText.includes("compat-acc")) throw new Error("unknown-family fallback must list the compat account (no registry to exclude it): " + anotherYText);
 if (anotherYText.includes("codex-acc") || anotherYText.includes("ag-acc") || anotherYText.includes("kimi-acc")) throw new Error("accounts declaring other models must stay excluded: " + anotherYText);
-if (!anotherYText.includes("无法从模型名识别")) throw new Error("unknown-family tooltip must carry the all-accounts hint");
+if (!anotherYText.includes("无法从模型名识别")) throw new Error("unknown-family tooltip must carry the all-accounts hint: " + anotherYText);
 if (anotherYText.includes("缺少")) throw new Error("no account may surface the missing-id error anymore");
 // The keyless other-cpa instance still shows the paste-key hint, not accounts.
 anotherYDot.dispatchEvent({ type: "mouseleave" });

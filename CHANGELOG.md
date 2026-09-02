@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-09-01
+
+### Added
+
+- **In-use account detection**: the plugin polls CPA's per-request usage
+  queue (`usage-queue`, non-destructively from the plugin's side) and keeps
+  a per-instance 7-day ledger in the browser. Accounts that actually served
+  the selected model in the last 24 hours are pinned in the tooltip with an
+  "in use" badge, last-used time, and 24h request/token totals; the rest
+  collapse under "Other accounts".
+- **"Only show accounts in use" toggle** on the settings card (on by
+  default) — turn it off to see every registry/family candidate again.
+- **Usage-statistics detection**: when CPA's `usage-statistics-enabled`
+  toggle is off, instance rows and tooltips say so (the in-use filter needs
+  that queue to observe anything).
+
 ## [0.6.1] - 2026-09-01
 
 ### Fixed

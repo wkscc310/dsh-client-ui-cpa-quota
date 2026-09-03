@@ -11,6 +11,7 @@ import { createServer } from "node:http";
 
 const PORT = Number(process.argv[2] ?? 8317);
 const MANAGEMENT_KEY = "mock-key";
+let usageStatsEnabled = true;
 
 const jwt = (claims) => `x.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.y`;
 
@@ -113,8 +114,23 @@ const server = createServer((req, res) => {
     res.end(JSON.stringify(payload));
   };
   if (req.url === "/v0/management/usage-statistics-enabled") {
+    if (req.method === "PUT") {
+      if (key !== MANAGEMENT_KEY) return json(401, { error: "invalid management key" });
+      let raw = "";
+      req.on("data", (chunk) => { raw += chunk; });
+      req.on("end", () => {
+        try {
+          const parsed = JSON.parse(raw || "{}");
+          usageStatsEnabled = parsed.value === true;
+          json(200, { "usage-statistics-enabled": usageStatsEnabled });
+        } catch (error) {
+          json(400, { error: "invalid body" });
+        }
+      });
+      return;
+    }
     if (key !== MANAGEMENT_KEY) return json(401, { error: "missing management key" });
-    return json(200, { enabled: true, logging: true });
+    return json(200, { "usage-statistics-enabled": usageStatsEnabled, logging: true });
   }
   if (req.url === "/v0/management/auth-files") {
     if (key !== MANAGEMENT_KEY) return json(401, { error: "invalid management key" });

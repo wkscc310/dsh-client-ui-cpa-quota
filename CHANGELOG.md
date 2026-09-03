@@ -18,7 +18,9 @@ adheres to [Semantic Versioning](https://semver.org/).
   default) — turn it off to see every registry/family candidate again.
 - **Usage-statistics detection**: when CPA's `usage-statistics-enabled`
   toggle is off, instance rows and tooltips say so (the in-use filter needs
-  that queue to observe anything).
+  that queue to observe anything) — and the instance row offers a one-click
+  enable button that writes `usage-statistics-enabled = true` into the CPA
+  config (persisted).
 
 ## [0.6.1] - 2026-09-01
 

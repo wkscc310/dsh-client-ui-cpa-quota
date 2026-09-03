@@ -197,6 +197,8 @@ function findInTree(tree, predicate, hits = []) {
   return hits;
 }
 
+const hasLabel = (n, text) => Array.isArray(n.children) && n.children.some((c) => typeof c === "string" && c.includes(text));
+
 let captured;
 windowStub.__ModuleLoader__ = { load: (entry) => { captured = entry; } };
 globalThis.__requirer = (spec) => {
@@ -228,7 +230,15 @@ const PROVIDERS = {
   cpagw: { baseURL: "https://other-cpa.example/v1", models: [{ id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" }] },
   "deepseek-official": { baseURL: "https://api.deepseek.example/v1", models: [{ id: "DeepSeek-V4-Flash", name: "DeepSeek V4 Flash" }] },
   flake: { baseURL: "https://flake.example/v1", models: [{ id: "flake-model", name: "flake-model" }] },
+  "cpa-off": { baseURL: "https://cpa-off.example/v1", models: [{ id: "off-model", name: "off-model" }] },
 };
+
+// Which bases have CPA's usage-statistics toggle ON (the cpa-off instance
+// ships with it off so the one-click enable button can be exercised).
+function statsOnFor(u) {
+  return !u.includes("cpa-off.example");
+}
+const putUsageCalls = [];
 
 const authFiles = {
   files: [
@@ -316,9 +326,22 @@ globalThis.fetch = async (url, init = {}) => {
     // BUG 1 regression fixture: a base whose probe fails transiently must not
     // be cached as unreachable for an hour.
     if (u.includes("flake.example")) throw new Error("network down");
-    // Authenticated reads (management key) report the statistics toggle state.
+    // PUT writes {"value": bool} (recorded for assertions).
+    if (init.method === "PUT") {
+      putUsageCalls.push({ url: u, body: JSON.parse(init.body ?? "{}") });
+      return { ok: true, status: 200, text: async () => JSON.stringify({ "usage-statistics-enabled": true }) };
+    }
+    // Authenticated reads report CPA's kebab-case toggle field; PUT writes
+    // {"value": bool} (recorded for assertions).
     if (init.headers && init.headers.Authorization) {
-      return { ok: true, status: 200, text: async () => JSON.stringify({ enabled: true, logging: true }) };
+      if (init.method === "PUT") {
+        putUsageCalls.push({ url: u, body: JSON.parse(init.body) });
+        return { ok: true, status: 200, text: async () => JSON.stringify({ "usage-statistics-enabled": putUsageCalls.at(-1).body.value }) };
+      }
+      return { ok: true, status: 200, text: async () => JSON.stringify({ "usage-statistics-enabled": statsOnFor(u) }) };
+    }
+    if (u.includes("cpa-off.example")) {
+      return { ok: false, status: 401, text: async () => '{"error":"management key required"}' };
     }
     if (u.includes("other-cpa.example")) {
       return { ok: false, status: 401, text: async () => JSON.stringify({ error: "invalid management key" }) };
@@ -493,6 +516,7 @@ const ctx = {
           { ns: "llm-pi-ai", value: { providers: {
             openai: PROVIDERS.openai,
             neutral: PROVIDERS.neutral,
+            "cpa-off": PROVIDERS["cpa-off"],
             cpagw: PROVIDERS.cpagw,
             flake: PROVIDERS.flake,
           } }, user: {}, base: {} },
@@ -602,7 +626,7 @@ if (!(Number(geminiArc.getAttribute("stroke-dashoffset")) < 0)) throw new Error(
 geminiDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));
 const tip = documentStub.body.children.find((child) => child.getAttribute && child.getAttribute("data-cpa-quota-tip") !== null);
-const treeText = (node) => `${node.textContent ?? ""}${(node.children ?? []).map(treeText).join("")}`;
+const treeText = (node) => `${node?.textContent ?? ""}${(node?.children ?? []).map(treeText).join("")}`;
 if (!tip || !treeText(tip).includes("Pro")) throw new Error("Antigravity paid plan badge missing from tooltip: " + (tip ? treeText(tip) : "no tooltip"));
 if (!tip || !treeText(tip).includes("ag-acc") || !treeText(tip).includes("ag-second")) throw new Error("multiple Antigravity accounts were not rendered in one tooltip: " + (tip ? treeText(tip) : "no tooltip"));
 const geminiTooltipText = treeText(tip);
@@ -717,7 +741,15 @@ probeCache["cpa-fixture.example.test"].at -= 30 * 60 * 1000; // well within the 
 windowStub.localStorage.setItem("dsh-cpa-quota:probe.v2", JSON.stringify(probeCache));
 authFiles.files[0].disabled = true;
 apiCalls.length = 0;
-mod.apply(ctx, yamlConfig);
+// The cpa-off instance ships with CPA's usage-statistics toggle OFF — the
+// card must offer the one-click enable (PUT) for it.
+mod.apply(ctx, {
+  instances: [
+    ...yamlConfig.instances,
+    { baseURL: "https://cpa-off.example/v1", managementKey: "off-key" },
+  ],
+  refreshMinutes: 5,
+});
 await new Promise((r) => setTimeout(r, 600));
 const reProbes = apiCalls.filter((c) => c.url.includes("usage-statistics-enabled"));
 if (!reProbes.some((c) => c.url.includes("flake.example"))) throw new Error("unreachable base must be re-probed after the retry TTL");
@@ -734,6 +766,11 @@ authFiles.files[0].disabled = false;
 // --- settings card render harness ---
 const cardComponent = card.component;
 if (typeof cardComponent !== "function") throw new Error("settings card component not captured");
+// The user has pasted the cpa-off management key — the row is keyed, so the
+// one-click enable button renders on it.
+windowStub.localStorage.setItem("dsh-cpa-quota:config", JSON.stringify({
+  instances: [{ baseURL: "https://cpa-off.example/v1", managementKey: "off-key" }],
+}));
 
 // Collapsed by default: only the header renders, with the health dot.
 let tree = renderComponent(cardComponent);
@@ -756,22 +793,46 @@ root = tree.children[0];
 if (root.children[1] === null) throw new Error("expanded card must render a body");
 const bodyEl = root.children[1];
 const instRows = findInTree(bodyEl, (n) => n.props?.className === "cpa-q-inst");
-if (instRows.length !== 2) throw new Error("expected two discovered instance rows, got " + instRows.length);
+// Rows: cpa-fixture (serves gpt-5.5/gemini), other-cpa (keyless), cpa-off
+// (usage statistics OFF — the one-click enable target).
+if (instRows.length !== 3) throw new Error("expected three discovered instance rows, got " + instRows.length);
 const domSlots = findInTree(bodyEl, (n) => typeof n.tag === "function" && n.tag.name === "DomSlot");
-if (domSlots.length !== 2) throw new Error("expected one accounts panel per instance, got " + domSlots.length);
+if (domSlots.length !== 3) throw new Error("expected one accounts panel per instance, got " + domSlots.length);
 const notes1 = memoTrace.filter((m) => m.key.startsWith("DomSlot#"));
-if (notes1.length !== 2) throw new Error("one memoized panel per DomSlot expected, got " + notes1.length);
-// Row 1 (cpa-fixture) has a usable quota snapshot: the panel must list EVERY
-// account with its windows — the CPA-management-style all-accounts view.
+if (notes1.length !== 3) throw new Error("one memoized panel per DomSlot expected, got " + notes1.length);
+// Row 1 (cpa-off, keyed): accounts from the shared auth-files fixture — the
+// CPA-management-style all-accounts view.
 if (notes1[0].value.className !== "cpa-q-accounts") throw new Error("panel with quota data must render the accounts container: " + notes1[0].value.className);
 const panelText = treeText(notes1[0].value);
-for (const name of ["codex-acc", "ag-acc", "ag-second", "claude-acc", "kimi-acc", "xai-acc", "xai-paid-acc"]) {
+for (const name of ["codex-acc", "ag-acc", "ag-second", "claude-acc", "kimi-acc", "xai-acc", "xai-paid-acc", "compat-acc"]) {
   if (!panelText.includes(name)) throw new Error("all-accounts panel must list " + name + "; got: " + panelText);
 }
 if (!panelText.includes("Five Hour Limit Remaining") || !panelText.includes("Weekly Limit Remaining")) throw new Error("panel must render quota windows");
-// Row 2 (other-cpa) is keyless: the panel shows the paste-key hint.
-if (notes1[1].value.className !== "cpa-q-accounts-note") throw new Error("keyless panel must render the paste-key note: " + notes1[1].value.className);
-if (!/management key|管理密钥|填入/.test(treeText(notes1[1].value))) throw new Error("keyless instance panel must show the paste-key hint");
+// Row 2 (cpa-fixture) also has a usable snapshot: same all-accounts view.
+if (notes1[1].value.className !== "cpa-q-accounts") throw new Error("second keyed panel must render the accounts container: " + notes1[1].value.className);
+// Row 3 (other-cpa) is keyless: the panel shows the paste-key hint.
+if (notes1[2].value.className !== "cpa-q-accounts-note") throw new Error("keyless panel must render the paste-key note: " + notes1[2].value.className);
+if (!/management key|管理密钥|填入/.test(treeText(notes1[2].value))) throw new Error("keyless instance panel must show the paste-key hint");
+// Row 3 (cpa-off): usage statistics OFF → the stats-off badge and the
+// one-click enable button must render.
+const offRow = instRows.find((row) => String(row.props.key ?? "").includes("cpa-off"));
+if (!offRow) throw new Error("cpa-off row missing from the card");
+const offStatsNote = findInTree(offRow, (n) => hasLabel(n, "用量统计未开启"))[0];
+if (!offStatsNote) throw new Error("stats-off badge missing on the cpa-off row");
+const offEnableBtn = findInTree(offRow, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "开启"))[0];
+if (!offEnableBtn) throw new Error("one-click enable button missing on the cpa-off row");
+offEnableBtn.props.onClick();
+await new Promise((r) => setTimeout(r, 30));
+const putUsageCall = apiCalls.filter((c) => c.init && c.init.method === "PUT" && c.url.includes("cpa-off") && c.url.includes("usage-statistics-enabled"))[0];
+if (!putUsageCall) throw new Error("enable must PUT to CPA's usage-statistics-enabled endpoint");
+const putBody = JSON.parse(putUsageCall.init.body);
+if (putBody.value !== true) throw new Error("enable PUT must carry {value:true}: " + JSON.stringify(putUsageCall.body));
+// Re-render: the stats-off badge and the enable button clear.
+tree = renderComponent(cardComponent);
+const offRowAfter = findInTree(tree, (n) => n.props?.className === "cpa-q-inst" && String(n.props.key ?? "").includes("cpa-off"))[0];
+if (!offRowAfter) throw new Error("cpa-off row vanished after enable");
+if (treeText(offRowAfter).includes("用量统计未开启") || treeText(offRowAfter).includes("usage stats off")) throw new Error("stats-off badge must clear after enable: " + treeText(offRowAfter));
+if (findInTree(offRowAfter, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "开启")).length > 0) throw new Error("enable button must clear after enable");
 
 // BUG 1 regression: a clock tick re-renders the card with unchanged quota —
 // the mounted panel node must keep its identity so the user's scroll position
@@ -781,8 +842,11 @@ tree = renderComponent(cardComponent);
 const domSlotsAfter = findInTree(tree, (n) => typeof n.tag === "function" && n.tag.name === "DomSlot");
 if (domSlotsAfter[0].props.quota !== quotaBefore) throw new Error("quota snapshot identity must stay stable across clock ticks");
 const notes2 = memoTrace.filter((m) => m.key.startsWith("DomSlot#"));
-if (notes2[0].value !== notes1[0].value || notes2[1].value !== notes1[1].value) {
-  throw new Error("panel DOM node must be reused across clock-tick re-renders (scroll would reset)");
+if (notes2.length !== notes1.length) throw new Error("panel count changed across clock ticks");
+for (let i = 0; i < notes1.length; i += 1) {
+  if (notes2[i].value !== notes1[i].value) {
+    throw new Error("panel DOM node must be reused across clock-tick re-renders (scroll would reset)");
+  }
 }
 
 // BUG 3: saving a key must persist the keyed row and drop empty-key
@@ -910,7 +974,6 @@ globalThis.FileReader = class {
 const createdElements = [];
 const realCreateElement = documentStub.createElement;
 documentStub.createElement = (tag) => { const el = realCreateElement(tag); createdElements.push(el); return el; };
-const hasLabel = (n, text) => Array.isArray(n.children) && n.children.some((c) => typeof c === "string" && c.includes(text));
 tree = renderComponent(cardComponent);
 const exportBtn = findInTree(tree, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "导出配置"))[0];
 if (!exportBtn) throw new Error("export button missing");

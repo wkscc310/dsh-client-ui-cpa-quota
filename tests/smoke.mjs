@@ -773,17 +773,18 @@ windowStub.localStorage.setItem("dsh-cpa-quota:config", JSON.stringify({
   instances: [{ baseURL: "https://cpa-off.example/v1", managementKey: "off-key" }],
 }));
 
-// Collapsed by default: only the header renders, with the health dot.
+// Collapsed by default: only the header renders. The old health dot next to
+// the title is gone (v0.8.1) — the card header is plain title/description.
 let tree = renderComponent(cardComponent);
 let root = tree.children[0];
 if (root.props.className !== "cpa-q-card") throw new Error("card root class wrong");
+if (findInTree(root, (n) => n.props?.className === "cpa-q-card-dot").length !== 0) throw new Error("health dot must stay removed from the card header");
 const toggle = root.children[0];
 if (toggle.props.className !== "cpa-q-card-toggle" || toggle.props["aria-expanded"] !== false) throw new Error("collapsed card must render the toggle button");
 if (root.children[1] !== null) throw new Error("collapsed card must not render a body");
 const heading = toggle.children[0];
-const dot = heading.children[0];
-if (dot.props.className !== "cpa-q-card-dot") throw new Error("health dot missing from the collapsed header");
-if (dot.props["data-level"] !== "ok") throw new Error("health dot level wrong with data present: " + dot.props["data-level"]);
+const titleEls = findInTree(heading, (n) => n.props?.className === "cpa-q-card-title");
+if (titleEls.length !== 1 || !String(titleEls[0].children[0]).includes("CliProxyAPI")) throw new Error("card title missing from the collapsed header");
 const chevron = toggle.children[1];
 if (chevron.props.className !== "cpa-q-card-chevron") throw new Error("chevron missing");
 
@@ -1004,4 +1005,4 @@ console.log("  gemini dot:", geminiDot.getAttribute("data-cpa-level"), "@", gemi
 console.log("  claude dot:", claudeDot.getAttribute("data-cpa-level"), "@", claudeDot.getAttribute("data-cpa-base"), "(discovered, keyless)");
 console.log("  deepseek: no dot (non-CPA)");
 console.log("  settings card registered:", card.def.name + "#" + card.def.key);
-console.log("  collapsed header: health dot ok / body hidden; pool peak:", peak, "/ timeout path exercised");
+console.log("  collapsed header: no health dot / body hidden; pool peak:", peak, "/ timeout path exercised");

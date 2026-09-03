@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.1] - 2026-09-03
+
+### Removed
+
+- **Health dot on the collapsed card header**: the small gray/colored dot
+  next to the "CliProxyAPI 额度" title is gone — the collapsed header now
+  reads as a plain title/description, matching the built-in plugin cards.
+  Per-model quota rings and the all-accounts panel are unchanged.
+
 ## [0.8.0] - 2026-09-01
 
 ### Added

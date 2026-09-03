@@ -7,7 +7,7 @@
 
 English | [中文](README.zh.md)
 
-A [DSH (DeepSeek Harness)](https://github.com/deepseek-ai/deepseek-harness) Web UI plugin that shows [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) quota right where you look: a native-styled ring beside the model picker, a health dot on the settings card, and a CPA-management-style panel listing **every account's quota windows** in one place.
+A [DSH (DeepSeek Harness)](https://github.com/deepseek-ai/deepseek-harness) Web UI plugin that shows [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) quota right where you look: a native-styled ring beside the model picker, and a CPA-management-style settings card listing **every account's quota windows** in one place.
 
 - Zero dependencies, plain JavaScript, no build step.
 - Instances are discovered automatically from your DSH provider `baseURL`s — no model lists, no config file required.
@@ -15,12 +15,12 @@ A [DSH (DeepSeek Harness)](https://github.com/deepseek-ai/deepseek-harness) Web 
 
 ## Screenshots
 
-### Collapsed card with quota health dot
+### Collapsed card
 
-The settings card stays collapsed like the built-in ones. The dot condenses every instance's worst window: green = healthy, amber = a window under 20%, red = exhausted or a failed refresh, gray = waiting / no key.
+The settings card stays collapsed like the built-in ones — plain title/description, expand for the details.
 
 <p align="center">
-  <img src="assets/screenshots/settings-card-collapsed.png" alt="Collapsed CliProxyAPI quota card with health dot" width="900">
+  <img src="assets/screenshots/settings-card-collapsed.png" alt="Collapsed CliProxyAPI quota card" width="900">
 </p>
 
 ### All accounts, CPA-management style

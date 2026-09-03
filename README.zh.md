@@ -7,7 +7,7 @@
 
 [English](README.md) | 中文
 
-一个 [DSH（DeepSeek Harness）](https://github.com/deepseek-ai/deepseek-harness) Web UI 插件，把 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) 的额度放到你一定会看的地方：模型选择器旁的原生风格圆环、设置卡片上的健康度圆点，以及一块仿 CPA 管理页的「全部账号额度」面板。
+一个 [DSH（DeepSeek Harness）](https://github.com/deepseek-ai/deepseek-harness) Web UI 插件，把 [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) 的额度放到你一定会看的地方：模型选择器旁的原生风格圆环，以及一块仿 CPA 管理页的「全部账号额度」设置卡片。
 
 - 零依赖、纯 JavaScript、无构建步骤。
 - 从 DSH 提供方的 `baseURL` 自动发现实例——不需要维护模型列表，也不需要配置文件。
@@ -15,12 +15,12 @@
 
 ## 展示
 
-### 折叠卡片 + 额度健康度圆点
+### 折叠卡片
 
-设置卡片默认折叠，与官方插件卡片一致。圆点浓缩了所有实例最紧张的额度窗口：绿色健康、黄色有窗口低于 20%、红色已耗尽或刷新失败、灰色等待中/未配置密钥。
+设置卡片默认折叠，与官方插件卡片一致——只有标题和描述，展开才能看到详情。
 
 <p align="center">
-  <img src="assets/screenshots/settings-card-collapsed.png" alt="折叠态 CliProxyAPI 额度卡片与健康度圆点" width="900">
+  <img src="assets/screenshots/settings-card-collapsed.png" alt="折叠态 CliProxyAPI 额度卡片" width="900">
 </p>
 
 ### 全部账号额度，仿 CPA 管理页

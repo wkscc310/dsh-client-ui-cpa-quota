@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] - 2026-09-01
+
+### Fixed
+
+- **Legacy ledger migration**: usage events recorded by pre-0.7.2 builds
+  were keyed by the auth-file NAME (…@gmail.com.json) while accounts render
+  by label — the in-use match never hit for them. Ledger events are now
+  re-keyed to the rendered account name on ingest (idempotent), so existing
+  history counts toward "in use" immediately after updating.
+
 ## [0.7.0] - 2026-09-01
 
 ### Added

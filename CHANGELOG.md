@@ -4,6 +4,18 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] - 2026-09-01
+
+### Added
+
+- **Configurable in-use window**: a second dropdown (使用中窗口) next to the
+  refresh interval — 30 minutes / 6 hours / 24 hours (default) / 7 days.
+  "In use" now means the account served the selected model within this
+  window, decoupled from the refresh interval (which only controls how often
+  data updates). The window persists like the rest of the card config.
+- The in-use view now also counts historical usage: ledger events recorded
+  before a rename are re-keyed to the rendered account name on ingest.
+
 ## [0.7.4] - 2026-09-01
 
 ### Changed

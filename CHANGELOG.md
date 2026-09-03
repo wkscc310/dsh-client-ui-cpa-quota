@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.4] - 2026-09-01
+
+### Changed
+
+- **In-use window follows the refresh interval**: "in use" now means the
+  account served the selected model within the current refresh cycle
+  (previously a fixed 24 hours) — accounts that drop out of CPA's rotation
+  leave the in-use view within one cycle, and the toggle label states the
+  cycle semantics.
+
 ## [0.7.3] - 2026-09-01
 
 ### Fixed

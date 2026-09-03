@@ -294,15 +294,16 @@ const accountModels = {
 };
 
 // Usage-queue records: the ONLY per-request source carrying auth_index +
-// model + timestamp (the ledger's raw input). codex-acc used gpt-5.5 five
-// minutes ago (→ in use), ag-acc served gemini 30 hours ago (→ outside the
-// 24h window, falls back to the registry tier). Timestamps are FIXED at
-// module load — real CPA records carry the original request time, so replay
-// must produce identical fingerprints for the ledger's dedupe.
+// model + timestamp (the ledger's raw input). codex-acc used gpt-5.5 one
+// minute ago (→ in use for the current refresh cycle), ag-acc served gemini
+// 30 hours ago (→ outside the window, falls back to the registry tier).
+// Timestamps are FIXED at module load — real CPA records carry the original
+// request time, so replay must produce identical fingerprints for the
+// ledger's dedupe.
 const usageQueueAt = Date.now();
 function usageQueueFixture() {
   return [
-    { timestamp: new Date(usageQueueAt - 5 * 60000).toISOString(), auth_index: "idx-1", model: "gpt-5.5", failed: false, tokens: { total_tokens: 1234 } },
+    { timestamp: new Date(usageQueueAt - 60 * 1000).toISOString(), auth_index: "idx-1", model: "gpt-5.5", failed: false, tokens: { total_tokens: 1234 } },
     { timestamp: new Date(usageQueueAt - 30 * 3600000).toISOString(), auth_index: "idx-2", model: "gemini-3.7-flash-high", failed: false, tokens: { total_tokens: 5000 } },
   ];
 }

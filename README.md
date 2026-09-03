@@ -46,7 +46,7 @@ Hover the ring next to the selected model for matching accounts, providers, plan
 - Supports multiple CLIProxyAPI instances and accounts, filtering the hover tooltip to the selected model while the settings panel always shows everything.
 - Orders windows as `5-hour → weekly → monthly → daily`; the ring uses the first available window in that order.
 - Queries Codex, Claude, Antigravity, Gemini CLI, Kimi, and xAI/Grok through their upstream quota APIs; other CPA providers still expose account status and recent activity.
-- **In-use account detection**: CPA's per-request usage queue feeds a local 7-day ledger, so the tooltip shows the accounts actually serving the selected model in the last 24 hours (sorted by last use, with an "in use" badge and 24h request/token totals) and collapses the rest under "Other accounts".
+- **In-use account detection**: CPA's per-request usage queue feeds a local 7-day ledger, so the tooltip shows the accounts that actually served the selected model within the current refresh cycle (sorted by last use, with an "in use" badge and request/token totals) and collapses the rest under "Other accounts". The in-use window follows the card's refresh interval.
 - Account probes run through a bounded pool with a per-request timeout — one hung upstream can never stall the refresh cycle.
 - Keeps the last successful snapshot across transient refresh failures and reuses rings across DSH screen remounts.
 - Colors: green ≥20% remaining, amber <20%, red exhausted/error, gray loading or missing a management key.
@@ -182,7 +182,7 @@ Point the plugin's manual instance input at the mock to see a full five-account 
 - **Where are my keys stored?** In this browser's `localStorage` only. Quota requests go straight from the browser to each instance; the DSH host never sees your keys.
 - **Switching browsers?** Use **Export config / Import config** on the card to move instances and keys between browsers. The exported JSON is plaintext — store it carefully.
 - **Tooltip shows every account?** The tooltip filters accounts by what each one actually serves, using CPA's own per-auth model registry first, then the model name and the DSH provider id as fallbacks. Only when a model matches no registry entry and no family signal can it be pinned down does the tooltip list the remaining usable accounts — and it says so when it does.
-- **Tooltip shows fewer accounts than before?** The in-use filter is on by default: accounts that served the selected model in the last 24 hours are pinned with an "in use" badge, the rest collapse under "Other accounts". Turn off "只显示使用中的账号" on the card to see every candidate again.
+- **Tooltip shows fewer accounts than before?** The in-use filter is on by default: accounts that served the selected model within the current refresh cycle are pinned with an "in use" badge, the rest collapse under "Other accounts". Turn off "只显示使用中的账号" on the card to see every candidate again.
 - **"usage stats off" badge?** Enable usage statistics in your CPA config (`usage-statistics-enabled: true`) — the in-use detection reads CPA's per-request usage queue and needs that toggle on. Everything else works without it.
 
 ## Community

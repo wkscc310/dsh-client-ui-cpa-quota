@@ -308,7 +308,7 @@ function usageQueueFixture() {
   ];
 }
 const apiCalls = [];
-globalThis.fetch = async (url, init = {}) => {
+const mainFetch = async (url, init = {}) => {
   const u = String(url);
   apiCalls.push({ url: u, init });
   if (u.endsWith("/v0/management/auth-files")) {
@@ -347,7 +347,7 @@ globalThis.fetch = async (url, init = {}) => {
     if (u.includes("other-cpa.example")) {
       return { ok: false, status: 401, text: async () => JSON.stringify({ error: "invalid management key" }) };
     }
-    if (u.includes("cpa-fixture.example.test")) {
+    if (u.includes("cpa-fixture.example.test") || u.includes("cpa-012.example")) {
       return { ok: false, status: 401, text: async () => JSON.stringify({ error: "management key required" }) };
     }
     return { ok: false, status: 404, text: async () => "not found" };
@@ -493,6 +493,7 @@ globalThis.fetch = async (url, init = {}) => {
   }
   throw new Error(`unexpected fetch ${u}`);
 };
+globalThis.fetch = mainFetch;
 
 const registeredSlots = [];
 const yamlConfig = {
@@ -1000,9 +1001,52 @@ if (!importedConfig.instances.some((i) => i.baseURL.includes("imported.example")
 if (importedConfig.refreshMinutes !== 7) throw new Error("imported refreshMinutes must apply, got " + importedConfig.refreshMinutes);
 
 // 额度快照被替换后,卡片下一次渲染必须换用新面板(非回归)
+
+// --- dsh 0.1.2 RPC face (ConnectionHandle.api removed) ---
+// The gateway's remote namespaces carry the same data with flat {ok,value}
+// envelopes, and settings.describe() must be called WITHOUT arguments. The
+// inject array must declare the namespaces so the runner waits for them.
+if (!Array.isArray(mod.inject) || !mod.inject.includes("remote.llm") || !mod.inject.includes("remote.settings")) {
+  throw new Error("inject must declare the remote namespaces for dsh 0.1.2: " + JSON.stringify(mod.inject));
+}
+const ctx012 = {
+  get: (name) => {
+    if (name === "connection") return {}; // 0.1.2 handle: no .api
+    if (name === "remote.llm") return { listConfigurableProviders: async () => ({ ok: true, value: [
+      { provider: "cpa012", settingsNs: "llm-012", settingsPath: [] },
+    ] }) };
+    if (name === "remote.settings") return { describe: async () => ({ ok: true, value: { writable: true, namespaces: [
+      { ns: "llm-012", value: { baseURL: "https://cpa-012.example/v1", models: [{ id: "gpt-5.5", name: "gpt-5.5" }] } },
+    ] } }) };
+    throw new Error(`unexpected service ${name}`);
+  },
+  slots: { inject: (slot, cb) => { cb(); }, register: () => {} },
+  effect: (fn) => { fn(); },
+};
+const trigger012 = makeTrigger("gpt-5.5");
+const prevQueryAll = documentStub.querySelectorAll;
+// Later sections replace globalThis.fetch with the timeout-path stub and never
+// restore it — route this instance's traffic back to the main fixture stub.
+const fetchBefore012 = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  const u = String(url);
+  if (u.includes("cpa-012.example")) return mainFetch(u, init);
+  return fetchBefore012(url, init);
+};
+documentStub.querySelectorAll = () => [trigger012.children[0]];
+mod.apply(ctx012, { instances: [{ baseURL: "https://cpa-012.example/v1", managementKey: "key-012" }], refreshMinutes: 5 });
+await new Promise((r) => setTimeout(r, 2000));
+globalThis.fetch = fetchBefore012;
+documentStub.querySelectorAll = prevQueryAll;
+const dot012 = ringOf(trigger012);
+if (!dot012) throw new Error("0.1.2 face: ring missing for a model served via the remote namespaces");
+if (dot012.getAttribute("data-cpa-base") !== "cpa-012.example") throw new Error("0.1.2 face: ring base wrong: " + dot012.getAttribute("data-cpa-base"));
+if (dot012.getAttribute("data-cpa-level") !== "ok") throw new Error("0.1.2 face: ring level wrong: " + dot012.getAttribute("data-cpa-level"));
+
 console.log("SMOKE OK");
 console.log("  gemini dot:", geminiDot.getAttribute("data-cpa-level"), "@", geminiDot.getAttribute("data-cpa-base"));
 console.log("  claude dot:", claudeDot.getAttribute("data-cpa-level"), "@", claudeDot.getAttribute("data-cpa-base"), "(discovered, keyless)");
 console.log("  deepseek: no dot (non-CPA)");
 console.log("  settings card registered:", card.def.name + "#" + card.def.key);
 console.log("  collapsed header: no health dot / body hidden; pool peak:", peak, "/ timeout path exercised");
+console.log("  dsh 0.1.2 remote face: gpt-5.5 ring", dot012.getAttribute("data-cpa-level"), "@", dot012.getAttribute("data-cpa-base"));

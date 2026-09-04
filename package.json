@@ -1,7 +1,7 @@
 {
   "name": "dsh-client-ui-cpa-quota",
   "description": "CliProxyAPI quota indicator: a native-styled ring left of the composer model name; hover shows per-account provider quotas, subscription plans, and status for Codex, Claude, Antigravity, Gemini CLI, Kimi, xAI/Grok, and other CPA auth providers. Targets the current dsh plugin contract (settings-namespace-keyed plugin cards).",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "author": "wkscc310",
   "repository": {
     "type": "git",

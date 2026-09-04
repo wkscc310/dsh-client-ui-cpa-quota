@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-wkscc310%2Fdsh--client--ui--cpa--quota-181717?logo=github)](https://github.com/wkscc310/dsh-client-ui-cpa-quota)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml/badge.svg)](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml)
-[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x-29abe2)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x%20%7C%200.1.2--29abe2)](https://github.com/deepseek-ai/deepseek-harness)
 
 English | [中文](README.zh.md)
 
@@ -53,7 +53,7 @@ Hover the ring next to the selected model for matching accounts, providers, plan
 
 ## Requirements
 
-- DSH **Web profile** on the current plugin contract (validated against `dsh` 0.1.1-rc.2); the plugin only registers in the Web UI.
+- DSH **Web profile** on the current plugin contract (validated against `dsh` 0.1.1-rc.2 and 0.1.2-rc.1); the plugin only registers in the Web UI.
 - A reachable CLIProxyAPI instance with its management API enabled.
 - Models must be routed through a DSH provider whose `baseURL` points at the corresponding CPA instance.
 - A management key for each CPA instance. Keys entered in the settings card stay in the current browser's `localStorage`; YAML-managed keys remain in the YAML file.

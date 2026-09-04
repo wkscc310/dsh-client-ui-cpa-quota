@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.2] - 2026-09-04
+
+### Fixed
+
+- **dsh 0.1.2 compatibility**: 0.1.2 removed `ConnectionHandle.api` and moved
+  the provider directory onto the gateway's remote namespaces. The plugin now
+  probes both RPC generations — `connection.api` (rc.x) and
+  `remote.llm` / `remote.settings` (0.1.2, flat `{ok,value}` envelope,
+  no-argument `settings.describe()`) — and declares the remote namespaces in
+  `inject` exactly like the built-in settings plugins, so the runner holds
+  `apply()` until they mount. A hung RPC can no longer stall the rings: every
+  directory call races an 8-second timeout, and a failed directory refresh
+  keeps the last-good index as before.
+- New smoke coverage: a full second plugin instance runs against a 0.1.2-style
+  context (remote namespaces, no `.api`) and must produce a healthy ring.
+
 ## [0.8.1] - 2026-09-03
 
 ### Removed

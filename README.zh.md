@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-wkscc310%2Fdsh--client--ui--cpa--quota-181717?logo=github)](https://github.com/wkscc310/dsh-client-ui-cpa-quota)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml/badge.svg)](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml)
-[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x-29abe2)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x%20%7C%200.1.2--29abe2)](https://github.com/deepseek-ai/deepseek-harness)
 
 [English](README.md) | 中文
 
@@ -53,7 +53,7 @@
 
 ## 环境要求
 
-- 采用新版插件契约的 DSH **Web profile**（已在 `dsh` 0.1.1-rc.2 上验证；插件只注册 Web UI）。
+- 采用新版插件契约的 DSH **Web profile**（已在 `dsh` 0.1.1-rc.2 与 0.1.2-rc.1 上验证；插件只注册 Web UI）。
 - 可访问且启用了管理 API 的 CLIProxyAPI 实例。
 - 每个要显示额度的模型，必须通过 DSH 提供方配置指向对应 CPA `baseURL`。
 - 每个 CPA 实例的 management key。通过设置卡片输入的密钥只保存在当前浏览器的 `localStorage`；使用 YAML 时则由 YAML 文件管理。

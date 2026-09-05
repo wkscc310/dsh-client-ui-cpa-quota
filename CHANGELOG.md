@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.3] - 2026-09-05
+
+### Fixed
+
+- The provider-directory capability probe also accepts a plain
+  `llm.listProviders()` face (dsh 0.1.2's registered-provider listing) as an
+  intermediate fallback between `listConfigurableProviders()` and the legacy
+  rc.x `providers({})` call.
+
 ## [0.8.2] - 2026-09-04
 
 ### Fixed

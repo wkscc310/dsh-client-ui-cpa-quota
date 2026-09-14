@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.4] - 2026-09-10
+
+### Changed
+
+- **Documented dsh 0.1.5 compatibility**: a source-level contract audit of
+  every plugin-relevant surface (ConnectionHandle, the gateway's remote
+  namespaces, the cordis client runner's inject semantics, the
+  `settings.plugin.item` slot, and the `@deepseek-ai/dsh-settings` node
+  contract) found no breaking changes between dsh 0.1.2-rc.1 and 0.1.5-rc.2 —
+  the plugin runs unchanged. Verified on a live 0.1.5-rc.2 host (the plugin
+  registers, its bundle is served, and the compat layer probes the same RPC
+  faces). README now lists 0.1.5 among the validated versions.
+
 ## [0.8.3] - 2026-09-05
 
 ### Fixed

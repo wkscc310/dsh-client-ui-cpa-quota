@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.6] - 2026-09-16
+
+### Fixed
+
+- **Hover card could not be scrolled and its "other accounts" group ran off
+  the bottom of the viewport.** Three causes, all in the card's positioning:
+  the card was placed once with a fixed `top` computed from its collapsed
+  height, so expanding the group grew it downward past the ring and the
+  viewport edge; its `max-height` (`min(70vh, 560px)`) ignored how much room
+  the chosen position actually left, so no scrollbar appeared for the hidden
+  part; and the window-level capture `scroll` listener treated the card's own
+  internal scrolling as a page scroll and rebuilt the whole card on every
+  wheel tick, resetting `scrollTop` and re-collapsing the group. The card is
+  now placed by a dedicated `placeTooltip`: it prefers the side of the ring
+  with room, anchors by the bottom edge when above so growth extends upward,
+  sets `max-height` to the room actually available (capped as before), and is
+  only re-placed — never rebuilt — on page scroll or resize, with the card's
+  own scroll events ignored. The expanded state and scroll position survive
+  quota-refresh re-renders for the same ring.
+
 ## [0.8.5] - 2026-09-16
 
 ### Fixed

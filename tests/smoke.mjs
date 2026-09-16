@@ -86,7 +86,9 @@ const windowStub = {
   setTimeout: (...a) => realSetTimeout(...a),
   clearTimeout, setInterval: () => 1, clearInterval: () => {},
   requestAnimationFrame: (fn) => realSetTimeout(fn, 0),
-  addEventListener() {}, removeEventListener() {},
+  windowListeners: new Map(),
+  addEventListener(type, fn) { const list = this.windowListeners.get(type) ?? []; list.push(fn); this.windowListeners.set(type, list); },
+  removeEventListener(type, fn) { this.windowListeners.set(type, (this.windowListeners.get(type) ?? []).filter((f) => f !== fn)); },
   dispatchEvent: () => true, CustomEvent: class { constructor(type) { this.type = type; } },
   innerWidth: 1280, innerHeight: 800,
 };
@@ -645,6 +647,17 @@ const geminiTooltipText = treeText(tip);
 if (geminiTooltipText.indexOf("Five Hour") < 0 || geminiTooltipText.indexOf("Weekly") < 0 || geminiTooltipText.indexOf("Five Hour") > geminiTooltipText.indexOf("Weekly")) throw new Error("quota windows are not ordered 5-hour before weekly");
 const injectedStyle = head.children.find((child) => child.dataset?.plugin === "dsh-client-ui-cpa-quota");
 if (!injectedStyle || !injectedStyle.textContent.includes(".cpa-q-arc{") || !injectedStyle.textContent.includes("stroke-linecap:butt")) throw new Error("ring arc still has a round cap that creates a fixed green dot");
+// The card is fitted to the room on its side of the ring: above it, anchored by
+// the bottom edge so growth extends upward, with max-height bound to that room.
+// A fixed top let an expanded "other accounts" group run off the viewport with
+// no scrollbar to reach it.
+if (tip.style.top !== "auto" || !/^\d+px$/.test(tip.style.bottom)) throw new Error(`tooltip should be bottom-anchored above the ring, got top=${tip.style.top} bottom=${tip.style.bottom}`);
+if (!/^\d+px$/.test(tip.style.maxHeight)) throw new Error("tooltip max-height must be sized to the available room: " + tip.style.maxHeight);
+// Scrolling inside the card must not rebuild it: the window-level capture
+// listener used to re-render on every wheel tick, resetting scrollTop.
+const tipFirstRow = tip.children[0];
+for (const listener of windowStub.windowListeners.get("scroll") ?? []) listener({ type: "scroll", target: tip });
+if (tip.children[0] !== tipFirstRow) throw new Error("internal card scroll rebuilt the tooltip content");
 
 gptDot.dispatchEvent({ type: "mouseenter" });
 await new Promise((r) => setTimeout(r, 30));

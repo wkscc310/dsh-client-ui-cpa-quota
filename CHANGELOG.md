@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.5] - 2026-09-16
+
+### Fixed
+
+- **Quota rings vanished next to the composer model picker on dsh 0.1.5+**.
+  The decorator identified the model button's label by reading
+  `button.firstElementChild` as the label span; dsh 0.1.5 added a leading svg
+  icon inside the trigger (`ModelSelect`'s `IconDataOutline16`), so the first
+  child became the icon and every label resolved to an empty string — no ring
+  was ever placed. The label is now read from the button's `title` attribute
+  (which every dsh version so far populates with the raw `model · effort`
+  label, split before decoration), falling back to the first text-bearing
+  direct-child span for older or custom hosts. Discovered live on 0.1.6-alpha.1;
+  0.1.5-rc.2 was contract-audited at 0.8.4 but this DOM-shape regression
+  slipped through because that audit did not cover composer markup.
+  Smoke tests now build both trigger shapes (0.1.2 style and 0.1.5+ icon-first
+  with an effort-suffixed title).
+
 ## [0.8.4] - 2026-09-10
 
 ### Changed

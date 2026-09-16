@@ -590,8 +590,18 @@ function makeTrigger(labelText) {
   container.appendChild(trigger);
   return container;
 }
-const geminiTrigger = makeTrigger("gemini-3.7-flash-high");
-const gptTrigger = makeTrigger("gpt-5.5");
+// dsh 0.1.5+ renders an svg icon before the label span and carries the raw
+// label in title (with " · effort" appended when an effort level is set).
+function makeTrigger016(labelText, title) {
+  const trigger = makeTrigger(labelText);
+  const button = trigger.children[0];
+  const icon = makeEl("svg");
+  button.children.unshift(icon);
+  button.setAttribute("title", title ?? labelText);
+  return trigger;
+}
+const geminiTrigger = makeTrigger016("gemini-3.7-flash-high");
+const gptTrigger = makeTrigger016("gpt-5.5", "gpt-5.5 · high");
 const claudeTrigger = makeTrigger("Claude Sonnet 4.6");
 const deepseekTrigger = makeTrigger("DeepSeek V4 Flash");
 const superXTrigger = makeTrigger("super-model-x");

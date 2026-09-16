@@ -853,6 +853,19 @@ const putUsageCall = apiCalls.filter((c) => c.init && c.init.method === "PUT" &&
 if (!putUsageCall) throw new Error("enable must PUT to CPA's usage-statistics-enabled endpoint");
 const putBody = JSON.parse(putUsageCall.init.body);
 if (putBody.value !== true) throw new Error("enable PUT must carry {value:true}: " + JSON.stringify(putUsageCall.body));
+// BUG 4 regression: the enable PUT must target an absolute URL. Building it
+// from `baseKey` (which strips the scheme) made fetch throw "unknown scheme".
+// This fake fetch matches by substring, so it passed a scheme-less URL.
+if (!/^https?:\/\//.test(putUsageCall.url)) {
+  throw new Error("enable PUT URL must be absolute: " + putUsageCall.url);
+}
+if (putUsageCall.url !== "https://cpa-off.example/v0/management/usage-statistics-enabled") {
+  throw new Error("enable PUT URL must keep the instance origin: " + putUsageCall.url);
+}
+// The toggle GET must be absolute as well.
+if (!probeCalls.some((c) => c.url === "https://cpa-off.example/v0/management/usage-statistics-enabled")) {
+  throw new Error("usage-statistics GET must be absolute too: " + JSON.stringify(probeCalls.map((c) => c.url)));
+}
 // Re-render: the stats-off badge and the enable button clear.
 tree = renderComponent(cardComponent);
 const offRowAfter = findInTree(tree, (n) => n.props?.className === "cpa-q-inst" && String(n.props.key ?? "").includes("cpa-off"))[0];

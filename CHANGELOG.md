@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **The "enable" button next to the "usage stats off" badge did nothing.**
+  `enableUsageStats` built its request URL from `baseKey(instance.baseURL)`
+  instead of `mgmtBase(instance.baseURL)`. `baseKey` is the display/match key
+  and strips the scheme, so the URL passed to `fetch` was
+  `host/v0/management/usage-statistics-enabled`. Browsers reject that
+  (`TypeError: fetch failed`, cause `unknown scheme`), and the promise had no
+  rejection handler, so the click failed with no error shown. The URL is now
+  built from `mgmtBase`, and a `.catch` drops the cached probe verdict so a
+  failed enable re-probes on the next refresh. The smoke test said nothing
+  about the URL shape and its fake `fetch` matches by substring, so a
+  scheme-less URL still passed CI; it now checks that the enable PUT targets
+  an absolute URL.
+
 ## [0.8.6] - 2026-09-16
 
 ### Fixed

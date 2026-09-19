@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.8.7] - 2026-09-19
 
 ### Fixed
 
@@ -19,7 +19,8 @@ adheres to [Semantic Versioning](https://semver.org/).
   failed enable re-probes on the next refresh. The smoke test said nothing
   about the URL shape and its fake `fetch` matches by substring, so a
   scheme-less URL still passed CI; it now checks that the enable PUT targets
-  an absolute URL.
+  an absolute URL. Contributed by [@yukinomon](https://github.com/yukinomon)
+  in [#2](https://github.com/wkscc310/dsh-client-ui-cpa-quota/pull/2).
 
 ## [0.8.6] - 2026-09-16
 

@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.8] - 2026-09-24
+
+### Fixed
+
+- **`usageWindowMinutes` no longer silently resets to the 24h default.** Two
+  paths dropped it: importing a config JSON (the export includes the field,
+  but `parseImportedConfig` never read it and the import handler never passed
+  it on, so every import reset the in-use detection window) and the host-side
+  config pipeline (`normalizeConfig` rebuilt the config with only
+  `refreshMinutes`/`instances`, stripping a yaml-provided window before the
+  browser half ever saw it). The import now round-trips the field with the
+  same clamp as `readConfig` ([5, 10080]), and the node half's normalizer and
+  settings schema declare it with matching defaults. Smoke tests cover both
+  the import round-trip and the host-side normalization.
+
 ## [0.8.7] - 2026-09-19
 
 ### Fixed

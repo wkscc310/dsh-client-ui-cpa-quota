@@ -1028,13 +1028,16 @@ picker.onchange();
 // picker.files[0] → FileReader stub reads file.__content — install a fake file
 // through the picker element.
 if (picker.files === undefined) {
-  Object.defineProperty(picker, "files", { value: [{ __content: JSON.stringify({ refreshMinutes: 7, instances: [{ baseURL: "https://imported.example/v1", managementKey: "imported-key" }] }) }] });
+  Object.defineProperty(picker, "files", { value: [{ __content: JSON.stringify({ refreshMinutes: 7, usageWindowMinutes: 45, instances: [{ baseURL: "https://imported.example/v1", managementKey: "imported-key" }] }) }] });
 }
 picker.onchange();
 await new Promise((r) => setTimeout(r, 30));
 const importedConfig = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:config"));
 if (!importedConfig.instances.some((i) => i.baseURL.includes("imported.example") && i.managementKey === "imported-key")) throw new Error("imported instance missing from config: " + JSON.stringify(importedConfig));
 if (importedConfig.refreshMinutes !== 7) throw new Error("imported refreshMinutes must apply, got " + importedConfig.refreshMinutes);
+// The exported config carries usageWindowMinutes; import must round-trip it
+// instead of silently resetting the in-use detection window to the default.
+if (importedConfig.usageWindowMinutes !== 45) throw new Error("imported usageWindowMinutes must round-trip, got " + importedConfig.usageWindowMinutes);
 
 // 额度快照被替换后,卡片下一次渲染必须换用新面板(非回归)
 
@@ -1082,7 +1085,17 @@ if (dot012.getAttribute("data-cpa-level") !== "ok") throw new Error("0.1.2 face:
 console.log("SMOKE OK");
 console.log("  gemini dot:", geminiDot.getAttribute("data-cpa-level"), "@", geminiDot.getAttribute("data-cpa-base"));
 console.log("  claude dot:", claudeDot.getAttribute("data-cpa-level"), "@", claudeDot.getAttribute("data-cpa-base"), "(discovered, keyless)");
-console.log("  deepseek: no dot (non-CPA)");
+console.log("  deepseek: no dot");
 console.log("  settings card registered:", card.def.name + "#" + card.def.key);
 console.log("  collapsed header: no health dot / body hidden; pool peak:", peak, "/ timeout path exercised");
 console.log("  dsh 0.1.2 remote face: gpt-5.5 ring", dot012.getAttribute("data-cpa-level"), "@", dot012.getAttribute("data-cpa-base"));
+
+// --- node half: the host-side config schema must not strip usageWindowMinutes ---
+const nodeHalf = await import("../lib/index.js");
+const normalized = nodeHalf.normalizeConfig({ refreshMinutes: 5, usageWindowMinutes: 30, instances: [{ baseURL: "https://x.example/v1", managementKey: "k", extra: "dropped" }] });
+if (normalized.usageWindowMinutes !== 30) throw new Error("node normalizeConfig must keep usageWindowMinutes, got " + JSON.stringify(normalized));
+if (normalized.refreshMinutes !== 5) throw new Error("node normalizeConfig must keep refreshMinutes");
+if (nodeHalf.normalizeConfig({}).usageWindowMinutes !== 1440) throw new Error("node normalizeConfig default window must be 1440");
+if (nodeHalf.normalizeConfig({ usageWindowMinutes: 999999 }).usageWindowMinutes !== 10080) throw new Error("node normalizeConfig must clamp the window to 10080");
+if (nodeHalf.Config.dict.usageWindowMinutes?.type !== "number") throw new Error("node Config schema must declare usageWindowMinutes");
+console.log("  node half: usageWindowMinutes survives host-side normalization");

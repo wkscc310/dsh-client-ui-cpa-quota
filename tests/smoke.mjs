@@ -579,6 +579,11 @@ if (apiCalls.some((c) => c.url.startsWith("https://other-cpa.example") && c.url.
 // namespace the node half serves (current dsh dispatches cards by key).
 const card = registeredSlots.find((r) => r.def && r.def.name === "settings.plugin.item");
 if (!card || card.def.key !== "cpa-quota") throw new Error("settings card not registered with the cpa-quota namespace key");
+// dsh 0.2 renamed the slot and dispatches tabs by id with a label resolver.
+const tab = registeredSlots.find((r) => r.def && r.def.name === "settings.plugins.tab");
+if (!tab || tab.def.id !== "cpa-quota") throw new Error("settings tab not registered with the cpa-quota id on the 0.2 slot");
+if (typeof tab.def.label !== "function" || !/CliProxyAPI/i.test(tab.def.label())) throw new Error("0.2 settings tab must carry a resolvable label");
+if (tab.component !== card.component) throw new Error("both slot generations must render the same card component");
 
 // --- DOM pass with three triggers ---
 function makeTrigger(labelText) {

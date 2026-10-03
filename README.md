@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-wkscc310%2Fdsh--client--ui--cpa--quota-181717?logo=github)](https://github.com/wkscc310/dsh-client-ui-cpa-quota)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml/badge.svg)](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml)
-[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x%20%7C%200.1.2%20%7C%200.1.5%20%7C%200.1.6--29abe2)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x%20%7C%200.1.2%20%7C%200.1.5%20%7C%200.1.6%20%7C%200.2.0--29abe2)](https://github.com/deepseek-ai/deepseek-harness)
 
 English | [中文](README.zh.md)
 
@@ -53,7 +53,8 @@ Hover the ring next to the selected model for matching accounts, providers, plan
 
 ## Requirements
 
-- DSH **Web profile** on the current plugin contract (validated against `dsh` 0.1.1-rc.2, 0.1.2-rc.1, 0.1.5-rc.2 and 0.1.6-alpha.1 — the last one live, ring and hover card included; 0.1.5+ needs plugin ≥ 0.8.5 because those hosts changed the model button's markup); the plugin only registers in the Web UI.
+- DSH **Web profile** on the current plugin contract (validated against `dsh` 0.1.1-rc.2, 0.1.2-rc.1, 0.1.5-rc.2, 0.1.6-alpha.1 and 0.2.0-rc.2 — 0.1.5+ needs plugin ≥ 0.8.5 for the model button's markup, 0.2.0 needs ≥ 0.9.0 for the rebuilt plugins settings slot); the plugin registers in the Web UI.
+- The official **Desktop app** runs the same web stack from its reserved `desktop` profile — install the plugin through the app's own plugin manager (the CLI rejects `dsh plugin --profile desktop` by design).
 - A reachable CLIProxyAPI instance with its management API enabled.
 - Models must be routed through a DSH provider whose `baseURL` points at the corresponding CPA instance.
 - A management key for each CPA instance. Keys entered in the settings card stay in the current browser's `localStorage`; YAML-managed keys remain in the YAML file.

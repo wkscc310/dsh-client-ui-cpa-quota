@@ -4,6 +4,49 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] - 2026-10-03
+
+### Fixed
+
+- **The plugin's bare hand-rolled Config schema crashed the host's whole
+  `settings/describe` on dsh 0.2.** 0.2 walks every plugin entry's exported
+  Config schema (`delete node.meta.volatile`), and this plugin's schema nodes
+  were bare `{type}` objects with no `meta` — one missing property took down
+  describe for every caller, including the built-in Settings UI (every
+  settings page rendered empty on a host with the plugin installed). Every
+  schema node now carries `meta` (the management-key field keeps its
+  `role: "secret"`). Found by wire-capturing the RPC channel against a live
+  0.2.0-rc.2 host.
+- `settings.describe()` failures during a host's asynchronous provider mount
+  no longer abort the model-index load until the next long refresh cycle:
+  the call now retries with backoff (up to 4 attempts), matching how the
+  built-in settings mirror treats the same transient `gateway/internal`.
+
+### Added
+
+- **dsh 0.2 (0.2.0-rc.2) and the official Desktop app.** A source-level
+  contract audit of 0.1.6-alpha.1 → 0.2.0-rc.2 found the composer model
+  trigger (still `aria-haspopup="menu"` + `title` + icon-first label span),
+  the RPC namespaces (`remote.llm`/`remote.settings`, envelopes, and
+  `llm/listConfigurableProviders` unchanged), the cordis runner's inject/slot
+  semantics, and the `window.__ModuleLoader__` contract intact, but the
+  plugins settings surface was rebuilt: the `settings.plugin.item` slot
+  became `settings.plugins.tab` with tabs dispatched by slot `id` (plus
+  `order`/`label`) instead of settings-namespace key, and the settings nav
+  gained a separate generic "插件" install page beside the renamed
+  "内置插件" row. The plugin now registers into both slot generations
+  (each host renders only the one it knows), the settings-card walk matches
+  nav labels by case-insensitive substring with the most-specific needle
+  first and activates its own `role="tab"` before expanding the card, and
+  the node half only calls the 0.1-style `settings.register` when the host
+  actually exposes it — 0.2 replaced it with per-entry config editing, where
+  the client-side tab registration alone carries the card. The Desktop app
+  boots the same web stack from its own reserved `desktop` profile (plugins
+  install through the app's plugin manager; `dsh plugin --profile desktop`
+  is rejected by design), so this bundle runs there unchanged. Live-verified
+  on 0.2.0-rc.2: ring beside the composer trigger, hover card geometry,
+  and the Settings → 内置插件 → CliProxyAPI 额度 tab.
+
 ## [0.8.8] - 2026-09-24
 
 ### Fixed

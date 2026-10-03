@@ -3,7 +3,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-wkscc310%2Fdsh--client--ui--cpa--quota-181717?logo=github)](https://github.com/wkscc310/dsh-client-ui-cpa-quota)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CI](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml/badge.svg)](https://github.com/wkscc310/dsh-client-ui-cpa-quota/actions/workflows/ci.yml)
-[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x%20%7C%200.1.2%20%7C%200.1.5%20%7C%200.1.6--29abe2)](https://github.com/deepseek-ai/deepseek-harness)
+[![dsh](https://img.shields.io/badge/dsh-0.1.1--rc.x%20%7C%200.1.2%20%7C%200.1.5%20%7C%200.1.6%20%7C%200.2.0--29abe2)](https://github.com/deepseek-ai/deepseek-harness)
 
 [English](README.md) | 中文
 
@@ -53,7 +53,8 @@
 
 ## 环境要求
 
-- 采用新版插件契约的 DSH **Web profile**（已在 `dsh` 0.1.1-rc.2、0.1.2-rc.1、0.1.5-rc.2 与 0.1.6-alpha.1 上验证，最后一个为真机验证，圆环与悬浮卡片均正常；0.1.5+ 需要插件 ≥ 0.8.5，因为这些版本改了模型按钮的 DOM 结构；插件只注册 Web UI）。
+- 采用新版插件契约的 DSH **Web profile**（已在 `dsh` 0.1.1-rc.2、0.1.2-rc.1、0.1.5-rc.2、0.1.6-alpha.1 与 0.2.0-rc.2 上验证；0.1.5+ 需要插件 ≥ 0.8.5（模型按钮 DOM 变化），0.2.0 需要插件 ≥ 0.9.0（插件设置槽位重构）；插件注册在 Web UI）。
+- 官方 **Desktop 桌面端**从保留的 `desktop` profile 运行同一套 Web 栈——请通过桌面端自带的插件管理安装本插件（CLI 按设计拒绝 `dsh plugin --profile desktop`）。
 - 可访问且启用了管理 API 的 CLIProxyAPI 实例。
 - 每个要显示额度的模型，必须通过 DSH 提供方配置指向对应 CPA `baseURL`。
 - 每个 CPA 实例的 management key。通过设置卡片输入的密钥只保存在当前浏览器的 `localStorage`；使用 YAML 时则由 YAML 文件管理。

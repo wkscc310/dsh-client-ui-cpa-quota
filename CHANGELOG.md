@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.1] - 2026-10-13
+
+### Changed
+
+- **Validated on dsh 0.2.1-alpha.2.** A source-level diff of every
+  plugin-relevant surface against 0.2.0-rc.2 (ui-slots, ui-settings-plugins,
+  settings, api/settings-controller, api/gateway, ui-input-trigger) found no
+  changes; ui-model-selection changed only null-guard internals
+  (`state.current === null` → `currentChoice === undefined`) with the trigger
+  button markup intact, llm's changes are call-preparation internals
+  (`listProviders`/`listConfigurableProviders` signatures unchanged), and the
+  connection changes concern remote-authority trust, none of which touch this
+  plugin. No code changes were needed. Live-verified on a 0.2.1-alpha.2 host:
+  the quota ring beside the composer trigger, the hover card, and
+  Settings → 内置插件 → CliProxyAPI 额度.
+
 ## [0.9.0] - 2026-10-03
 
 ### Fixed

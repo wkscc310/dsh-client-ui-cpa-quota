@@ -55,6 +55,16 @@ function makeEl(tag) {
         }
         return null;
       }
+      if (sel === "[data-model-id]") {
+        for (const child of this.children) {
+          if (child.getAttribute && child.getAttribute("data-model-id") !== null) return child;
+          if (child.querySelector) {
+            const nested = child.querySelector(sel);
+            if (nested) return nested;
+          }
+        }
+        return null;
+      }
       return null;
     },
     querySelectorAll() { return []; },
@@ -607,7 +617,26 @@ function makeTrigger016(labelText, title) {
   button.setAttribute("title", title ?? labelText);
   return trigger;
 }
-const geminiTrigger = makeTrigger016("gemini-3.7-flash-high");
+// dsh 0.2.1-rc.1+ wraps the model label inside <span data-provider-id="..." data-model-id="...">
+// providing an explicit catalog model id attribute directly on the DOM element.
+function makeTrigger021rc1(modelId, labelText, title) {
+  const innerSpan = makeEl("span");
+  innerSpan.textContent = labelText ?? modelId;
+  innerSpan.setAttribute("data-model-id", modelId);
+  innerSpan.setAttribute("data-provider-id", "openai");
+  const outerSpan = makeEl("span");
+  outerSpan.children.push(innerSpan);
+  const chevron = makeEl("svg");
+  const icon = makeEl("svg");
+  const trigger = makeEl("button");
+  trigger.setAttribute("aria-haspopup", "menu");
+  trigger.setAttribute("title", title ?? (labelText ?? modelId));
+  trigger.children.push(icon, outerSpan, chevron);
+  const container = makeEl("div");
+  container.appendChild(trigger);
+  return container;
+}
+const geminiTrigger = makeTrigger021rc1("gemini-3.7-flash-high");
 const gptTrigger = makeTrigger016("gpt-5.5", "gpt-5.5 · high");
 const claudeTrigger = makeTrigger("Claude Sonnet 4.6");
 const deepseekTrigger = makeTrigger("DeepSeek V4 Flash");
@@ -1007,6 +1036,23 @@ documentStub.querySelectorAll = (selector) => (selector === "button" ? [settings
 geminiDot.dispatchEvent({ type: "click" });
 await new Promise((r) => setTimeout(r, 600));
 if (!clicked.includes("设置") || !clicked.includes("插件")) throw new Error("ring click must walk 设置 → 插件: " + JSON.stringify(clicked));
+
+// dsh 0.2.1+ nested walk: "更多" AccountMenu -> "设置" menuitem -> "内置插件"
+clicked.length = 0;
+const moreFixture = makeButtonFixture("更多");
+const menuSettingsFixture = makeButtonFixture("设置");
+menuSettingsFixture.setAttribute("role", "menuitem");
+const builtinPluginsFixture = makeButtonFixture("内置插件");
+documentStub.querySelectorAll = (selector) => {
+  if (selector === "button") return [moreFixture, builtinPluginsFixture];
+  if (selector.includes("menuitem") || selector.includes("menu")) return [menuSettingsFixture];
+  return [];
+};
+geminiDot.dispatchEvent({ type: "click" });
+await new Promise((r) => setTimeout(r, 600));
+if (!clicked.includes("更多") || !clicked.includes("设置") || !clicked.includes("内置插件")) {
+  throw new Error("ring click must walk 更多 → 设置 → 内置插件: " + JSON.stringify(clicked));
+}
 
 // --- config import/export ---
 globalThis.Blob = class { constructor(parts) { this.content = parts.join(""); } };

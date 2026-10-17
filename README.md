@@ -53,7 +53,7 @@ Hover the ring next to the selected model for matching accounts, providers, plan
 
 ## Requirements
 
-- DSH **Web profile** on the current plugin contract (validated against `dsh` 0.1.1-rc.2, 0.1.2-rc.1, 0.1.5-rc.2, 0.1.6-alpha.1, 0.2.0-rc.2 and 0.2.1-alpha.2 — 0.1.5+ needs plugin ≥ 0.8.5 for the model button's markup, 0.2.x needs ≥ 0.9.0 for the rebuilt plugins settings slot); the plugin registers in the Web UI.
+- DSH **Web profile** on the current plugin contract (validated against `dsh` 0.1.1-rc.2, 0.1.2-rc.1, 0.1.5-rc.2, 0.1.6-alpha.1, 0.2.0-rc.2, 0.2.1-alpha.2 and 0.2.1-rc.1 — 0.1.5+ needs plugin ≥ 0.8.5 for the model button's markup, 0.2.x needs ≥ 0.9.0 for the rebuilt plugins settings slot); the plugin registers in the Web UI.
 - The official **Desktop app** runs the same web stack from its reserved `desktop` profile — install the plugin through the app's own plugin manager (the CLI rejects `dsh plugin --profile desktop` by design).
 - A reachable CLIProxyAPI instance with its management API enabled.
 - Models must be routed through a DSH provider whose `baseURL` points at the corresponding CPA instance.

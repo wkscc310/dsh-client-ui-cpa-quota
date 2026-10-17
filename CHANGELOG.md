@@ -4,6 +4,24 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.2] - 2026-10-17
+
+### Added
+
+- **dsh 0.2.1-rc.1 adaptation & enhanced model discovery**:
+  - `ModelSelect` in 0.2.1-rc.1 wraps the model caption inside an inner
+    `<span data-model-id="...">` element (part of the new inline
+    `conversation.input.model.label` slot). The decorator now extracts the
+    exact model ID directly from `[data-model-id]` when present, before falling
+    back to the trigger's `title` or text label, making model resolution
+    completely immune to label localization or inline extensions.
+  - `openSettingsCard()` (clicking the quota ring) now supports the dsh 0.2.1+
+    sidebar layout where the Settings trigger is nested inside the "更多"
+    (More / AccountMenu) dropdown, walking `更多 → 设置 → 内置插件 → CliProxyAPI 额度`
+    automatically.
+  - Smoke tests expanded to cover `[data-model-id]` trigger markup and the
+    nested Settings walk. Live-verified end-to-end on a 0.2.1-rc.1 host.
+
 ## [0.9.1] - 2026-10-13
 
 ### Changed

@@ -4,6 +4,21 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.4] - 2026-10-17
+
+### Fixed
+
+- **CPA instances returning 403 / IP ban or custom signature headers were
+  mistakenly treated as non-CPA and dropped**:
+  - `probeCpa` now inspects CPA's signature response headers (`X-Cpa-Version`,
+    `X-Cpa-Commit`, `X-Cpa-Support-Plugin`) and recognizes 403 rate-limit / IP-ban
+    responses as confirmed CliProxyAPI servers.
+  - `rebuildInstances()` no longer drops explicitly configured instances when
+    the probe is in a transient failure or rate-limited state (only drops
+    when the probe cleanly returns 404 from a plain provider).
+  - Prevents configured CPA instances and rings from vanishing when CPA triggers
+    temporary IP rate limiting.
+
 ## [0.9.3] - 2026-10-17
 
 ### Fixed

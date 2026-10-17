@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.3] - 2026-10-17
+
+### Fixed
+
+- **Manually added instances could not be deleted ("移除" button was missing)**:
+  `readConfig()` merged instances without preserving `source: "local"` on the
+  stored map entries, causing `row.manual` in `QuotaSettingsCard` to always
+  evaluate to `false`. Any locally added or localStorage-persisted instance
+  now correctly exposes the `[移除]` (remove) button, deleting it cleanly from
+  `localStorage`.
+- **Manual instance baseURL input normalization**: typing a host or endpoint
+  without a protocol scheme now automatically prepends `https://`, and the
+  placeholder shows an example URL (`https://cpa.example.com/v1`).
+- Added automated smoke test coverage verifying the complete add-and-remove
+  lifecycle of manually configured instances.
+
 ## [0.9.2] - 2026-10-17
 
 ### Added

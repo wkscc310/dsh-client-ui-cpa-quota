@@ -937,6 +937,29 @@ const savedConfig = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:co
 if (!savedConfig.instances.some((i) => i.baseURL.includes("cpa-fixture") && i.managementKey === "sk-test-1")) throw new Error("saved key row missing from localStorage: " + JSON.stringify(savedConfig));
 if (savedConfig.instances.some((i) => i.managementKey === "")) throw new Error("empty-key discovered rows must not be persisted: " + JSON.stringify(savedConfig));
 
+// Manual instance add and remove: manually added instances must carry the
+// "移除" button and be cleanly removable from localStorage.
+let newBaseInput = findInTree(tree, (n) => n.props?.placeholder?.includes("手动添加实例"))[0];
+let addBtn = findInTree(tree, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "添加"))[0];
+if (!newBaseInput || !addBtn) throw new Error("manual instance add input or button missing");
+newBaseInput.props.onChange({ target: { value: "https://manual.example/v1" } });
+tree = renderComponent(cardComponent);
+addBtn = findInTree(tree, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "添加"))[0];
+addBtn.props.onClick();
+
+tree = renderComponent(cardComponent);
+const manualRow = findInTree(tree, (n) => n.props?.className === "cpa-q-inst" && String(n.props.key ?? "").includes("manual.example"))[0];
+if (!manualRow) throw new Error("manually added instance not rendered in settings card");
+const removeBtn = findInTree(manualRow, (n) => typeof n.props?.onClick === "function" && hasLabel(n, "移除"))[0];
+if (!removeBtn) throw new Error("manually added instance MUST render a remove (移除) button");
+
+removeBtn.props.onClick();
+tree = renderComponent(cardComponent);
+const manualRowAfter = findInTree(tree, (n) => n.props?.className === "cpa-q-inst" && String(n.props.key ?? "").includes("manual.example"))[0];
+if (manualRowAfter) throw new Error("manually added instance still present after clicking remove");
+const configAfterRemove = JSON.parse(windowStub.localStorage.getItem("dsh-cpa-quota:config"));
+if (configAfterRemove.instances.some((i) => i.baseURL.includes("manual.example"))) throw new Error("removed instance still present in localStorage");
+
 // BUG 2: account probes run through a bounded pool — 12 accounts must never
 // exceed 5 simultaneous upstream calls, and every account still resolves.
 // (The localStorage config from the BUG 3 save is cleared so exactly one

@@ -417,14 +417,6 @@ const mainFetch = async (url, init = {}) => {
           body: JSON.stringify({
             groups: [
               {
-                displayName: "Gemini models",
-                description: "Models within this group: Gemini Flash, Gemini Pro",
-                buckets: [
-                { bucketId: "gemini-5h", displayName: "Five Hour Limit Remaining", window: "5h", remainingFraction: 0.75, resetTime: "2026-08-17T08:00:00Z" },
-                  { bucketId: "gemini-weekly", displayName: "Weekly Limit Remaining", window: "weekly", remainingFraction: 0.1, resetTime: "2026-08-21T08:00:00Z" },
-                ],
-              },
-              {
                 displayName: "Claude and GPT models",
                 description: "Models within this group: Claude Opus, GPT-OSS",
                 buckets: [
@@ -432,6 +424,21 @@ const mainFetch = async (url, init = {}) => {
                   { bucketId: "gpt-weekly", displayName: "Weekly Limit Remaining", window: "weekly", remainingFraction: 0.75, resetTime: "2026-08-21T08:00:00Z" },
                 ],
               },
+            ],
+          }),
+        }),
+      };
+    }
+    if (body.url.includes("retrieveUserQuota") && !body.url.includes("retrieveUserQuotaSummary")) {
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify({
+          status_code: 200,
+          body: JSON.stringify({
+            buckets: [
+              { tokenType: "WTUS", modelId: "gemini-3.7-flash-high", window: "5h", displayName: "Five Hour Limit Remaining", remainingFraction: 0.8, resetTime: "2026-08-17T08:00:00Z" },
+              { tokenType: "WTUS", modelId: "gemini-3.7-flash-high", window: "weekly", displayName: "Weekly Limit Remaining", remainingFraction: 0.9, resetTime: "2026-08-21T08:00:00Z" },
+              { tokenType: "WTUS", modelId: "gemini-3.8-flash-tiered", window: "5h", displayName: "Five Hour Limit Remaining", remainingFraction: 0.85, resetTime: "2026-08-17T08:00:00Z" },
             ],
           }),
         }),

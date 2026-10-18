@@ -4,6 +4,22 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.6] - 2026-10-18
+
+### Fixed
+
+- **Fixed missing Antigravity Gemini quota windows and gray quota ring**:
+  - Google Cloud Code upstream backend recently removed the Gemini models group
+    from `retrieveUserQuotaSummary`, serving Gemini quotas exclusively via
+    `retrieveUserQuota`. When Antigravity summaries omit Gemini models, the plugin
+    now automatically queries `retrieveUserQuota` and merges Gemini model buckets
+    (`gemini-3.8-flash-tiered`, etc.) with the Claude/GPT groups.
+  - `seriesKey` now normalizes `-tiered` and `-agent` suffixes, allowing
+    `gemini-3.8-flash-high` to seamlessly match Google's `gemini-3.8-flash-tiered` bucket.
+  - Gemini models on Antigravity accounts now display their actual quota percentage,
+    refresh countdown, and active green status rings instead of falling back to
+    request counts or "no quota query API".
+
 ## [0.9.5] - 2026-10-18
 
 ### Fixed

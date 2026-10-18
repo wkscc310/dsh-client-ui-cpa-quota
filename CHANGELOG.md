@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.5] - 2026-10-18
+
+### Fixed
+
+- **Eliminated management IP bans caused by unauthenticated fingerprint probes**:
+  - `probeCpa` now probes the unauthenticated root endpoint (`/`) first, checking for
+    CPA's signature JSON response and custom headers (`X-Cpa-Version`, etc.).
+  - Never touches `/v0/management/` without a key during fingerprint discovery,
+    preventing CPA's brute-force protection (CPA issue #4013, 5 unauthenticated
+    management calls = 15-minute IP ban) from being triggered.
+  - Formatted 403 IP ban error statuses with user-friendly explanations and
+    remaining ban time countdowns in the settings card.
+
 ## [0.9.4] - 2026-10-17
 
 ### Fixed

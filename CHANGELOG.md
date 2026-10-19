@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.7] - 2026-10-19
+
+### Fixed
+
+- **Removed duplicated "5小时窗口" rows in the quota card**:
+  - The daily/sandbox quota-summary hosts now serve only the "Claude and GPT models"
+    group, while `cloudcode-pa.googleapis.com` still exposes the Gemini group.
+    The summary probe order now tries the complete host first, so the clean
+    group-level 5-hour/weekly windows are used instead of per-model fallbacks.
+  - When every summary host omits Gemini, `retrieveUserQuota` per-model buckets
+    are collapsed into one group row (minimum remaining fraction, earliest reset)
+    instead of rendering ~20 identical rows.
+  - Per-model Gemini rows now carry their model id in the label when no display
+    name exists, so any remaining fallback rows are distinguishable.
+  - Added a regression test asserting the all-accounts panel does not emit
+    duplicate Gemini fallback rows.
+
 ## [0.9.6] - 2026-10-18
 
 ### Fixed

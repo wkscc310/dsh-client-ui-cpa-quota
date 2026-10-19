@@ -410,23 +410,31 @@ const mainFetch = async (url, init = {}) => {
       };
     }
     if (body.url.includes("retrieveUserQuotaSummary")) {
+      // Mirror the live backend: cloudcode-pa serves both groups while the
+      // daily/sandbox hosts only expose Claude/GPT.
+      const groups = [
+        {
+          displayName: "Claude and GPT models",
+          description: "Models within this group: Claude Opus, GPT-OSS",
+          buckets: [
+            { bucketId: "gpt-5h", displayName: "Five Hour Limit Remaining", window: "5h", remainingFraction: 0.75, resetTime: "2026-08-17T08:00:00Z" },
+            { bucketId: "gpt-weekly", displayName: "Weekly Limit Remaining", window: "weekly", remainingFraction: 0.75, resetTime: "2026-08-21T08:00:00Z" },
+          ],
+        },
+      ];
+      if (!body.url.includes("daily-cloudcode-pa") && body.auth_index !== "idx-7") {
+        groups.unshift({
+          displayName: "Gemini Models",
+          description: "Models within this group: Gemini Flash, Gemini Pro",
+          buckets: [
+            { bucketId: "gemini-5h", displayName: "Five Hour Limit Remaining", window: "5h", remainingFraction: 0.6, resetTime: "2026-08-17T08:00:00Z" },
+            { bucketId: "gemini-weekly", displayName: "Weekly Limit Remaining", window: "weekly", remainingFraction: 0.1, resetTime: "2026-08-21T08:00:00Z" },
+          ],
+        });
+      }
       return {
         ok: true, status: 200,
-        text: async () => JSON.stringify({
-          status_code: 200,
-          body: JSON.stringify({
-            groups: [
-              {
-                displayName: "Claude and GPT models",
-                description: "Models within this group: Claude Opus, GPT-OSS",
-                buckets: [
-                  { bucketId: "gpt-5h", displayName: "Five Hour Limit Remaining", window: "5h", remainingFraction: 0.75, resetTime: "2026-08-17T08:00:00Z" },
-                  { bucketId: "gpt-weekly", displayName: "Weekly Limit Remaining", window: "weekly", remainingFraction: 0.75, resetTime: "2026-08-21T08:00:00Z" },
-                ],
-              },
-            ],
-          }),
-        }),
+        text: async () => JSON.stringify({ status_code: 200, body: JSON.stringify({ groups }) }),
       };
     }
     if (body.url.includes("retrieveUserQuota") && !body.url.includes("retrieveUserQuotaSummary")) {
@@ -436,9 +444,10 @@ const mainFetch = async (url, init = {}) => {
           status_code: 200,
           body: JSON.stringify({
             buckets: [
-              { tokenType: "WTUS", modelId: "gemini-3.7-flash-high", window: "5h", displayName: "Five Hour Limit Remaining", remainingFraction: 0.8, resetTime: "2026-08-17T08:00:00Z" },
-              { tokenType: "WTUS", modelId: "gemini-3.7-flash-high", window: "weekly", displayName: "Weekly Limit Remaining", remainingFraction: 0.9, resetTime: "2026-08-21T08:00:00Z" },
-              { tokenType: "WTUS", modelId: "gemini-3.8-flash-tiered", window: "5h", displayName: "Five Hour Limit Remaining", remainingFraction: 0.85, resetTime: "2026-08-17T08:00:00Z" },
+              { tokenType: "WTUS", modelId: "gemini-3.7-flash-high", remainingFraction: 0.8, resetTime: "2026-08-17T08:00:00Z" },
+              { tokenType: "WTUS", modelId: "gemini-3.8-flash-tiered", remainingFraction: 0.85, resetTime: "2026-08-17T08:00:00Z" },
+              { tokenType: "WTUS", modelId: "gemini-2.5-pro", remainingFraction: 0.95, resetTime: "2026-08-17T08:00:00Z" },
+              { tokenType: "WTUS", modelId: "claude-opus-4-6-thinking", remainingFraction: 0.5, resetTime: "2026-08-17T08:00:00Z" },
             ],
           }),
         }),
@@ -875,6 +884,26 @@ for (const name of ["codex-acc", "ag-acc", "ag-second", "claude-acc", "kimi-acc"
   if (!panelText.includes(name)) throw new Error("all-accounts panel must list " + name + "; got: " + panelText);
 }
 if (!panelText.includes("Five Hour Limit Remaining") || !panelText.includes("Weekly Limit Remaining")) throw new Error("panel must render quota windows");
+// Regression: when a host only exposes the Claude/GPT summary group, the
+// Gemini fallback must collapse per-model buckets into one group row instead
+// of rendering ~20 identical "5小时窗口" rows (idx-7 = ag-second fixture).
+const accountSections = [];
+const collectAccounts = (node) => {
+  if (node === null || typeof node !== "object") return;
+  if (node.className === "cpa-q-acc") accountSections.push(node);
+  for (const child of node.children ?? []) collectAccounts(child);
+};
+collectAccounts(notes1[0].value);
+const agSecondSection = accountSections.find((node) => treeText(node).includes("ag-second"));
+if (!agSecondSection) throw new Error("ag-second section missing from all-accounts panel");
+const quotaRowCount = (node) => {
+  let count = node.className === "cpa-q-row" ? 1 : 0;
+  for (const child of node.children ?? []) count += quotaRowCount(child);
+  return count;
+};
+if (quotaRowCount(agSecondSection) > 4) {
+  throw new Error("Gemini fallback rendered duplicate per-model rows: " + quotaRowCount(agSecondSection));
+}
 // Row 2 (cpa-fixture) also has a usable snapshot: same all-accounts view.
 if (notes1[1].value.className !== "cpa-q-accounts") throw new Error("second keyed panel must render the accounts container: " + notes1[1].value.className);
 // Row 3 (other-cpa) is keyless: the panel shows the paste-key hint.

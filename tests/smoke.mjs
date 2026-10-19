@@ -694,7 +694,7 @@ const treeText = (node) => `${node?.textContent ?? ""}${(node?.children ?? []).m
 if (!tip || !treeText(tip).includes("Pro")) throw new Error("Antigravity paid plan badge missing from tooltip: " + (tip ? treeText(tip) : "no tooltip"));
 if (!tip || !treeText(tip).includes("ag-acc") || !treeText(tip).includes("ag-second")) throw new Error("multiple Antigravity accounts were not rendered in one tooltip: " + (tip ? treeText(tip) : "no tooltip"));
 const geminiTooltipText = treeText(tip);
-if (geminiTooltipText.indexOf("Five Hour") < 0 || geminiTooltipText.indexOf("Weekly") < 0 || geminiTooltipText.indexOf("Five Hour") > geminiTooltipText.indexOf("Weekly")) throw new Error("quota windows are not ordered 5-hour before weekly");
+if (geminiTooltipText.indexOf("5小时窗口") < 0 || geminiTooltipText.indexOf("每周窗口") < 0 || geminiTooltipText.indexOf("5小时窗口") > geminiTooltipText.indexOf("每周窗口")) throw new Error("quota windows are not ordered 5-hour before weekly");
 const injectedStyle = head.children.find((child) => child.dataset?.plugin === "dsh-client-ui-cpa-quota");
 if (!injectedStyle || !injectedStyle.textContent.includes(".cpa-q-arc{") || !injectedStyle.textContent.includes("stroke-linecap:butt")) throw new Error("ring arc still has a round cap that creates a fixed green dot");
 // The card is fitted to the room on its side of the ring: above it, anchored by
@@ -883,7 +883,7 @@ const panelText = treeText(notes1[0].value);
 for (const name of ["codex-acc", "ag-acc", "ag-second", "claude-acc", "kimi-acc", "xai-acc", "xai-paid-acc", "compat-acc"]) {
   if (!panelText.includes(name)) throw new Error("all-accounts panel must list " + name + "; got: " + panelText);
 }
-if (!panelText.includes("Five Hour Limit Remaining") || !panelText.includes("Weekly Limit Remaining")) throw new Error("panel must render quota windows");
+if (!panelText.includes("5小时窗口") || !panelText.includes("每周窗口")) throw new Error("panel must render quota windows");
 // Regression: when a host only exposes the Claude/GPT summary group, the
 // Gemini fallback must collapse per-model buckets into one group row instead
 // of rendering ~20 identical "5小时窗口" rows (idx-7 = ag-second fixture).
@@ -904,6 +904,27 @@ const quotaRowCount = (node) => {
 if (quotaRowCount(agSecondSection) > 4) {
   throw new Error("Gemini fallback rendered duplicate per-model rows: " + quotaRowCount(agSecondSection));
 }
+if (!treeText(agSecondSection).includes("Gemini 模型") || !treeText(agSecondSection).includes("80%")) {
+  throw new Error("Gemini fallback must render one group row with the conservative remaining fraction: " + treeText(agSecondSection));
+}
+// Per-channel display assertions: every provider path must format its windows
+// and percentages in the same Chinese UI vocabulary.
+const sectionFor = (name) => accountSections.find((node) => treeText(node).includes(name));
+const expectSection = (name, fragments) => {
+  const section = sectionFor(name);
+  if (!section) throw new Error("account section missing: " + name);
+  const content = treeText(section);
+  for (const fragment of fragments) {
+    if (!content.includes(fragment)) throw new Error(`${name} quota row missing "${fragment}": ${content}`);
+  }
+};
+expectSection("codex-acc", ["5小时窗口", "每周窗口", "58%", "19%"]);
+expectSection("claude-acc", ["5小时窗口", "每周窗口", "75%", "57%"]);
+expectSection("kimi-acc", ["每周窗口", "80%"]);
+expectSection("xai-acc", ["每周额度", "月度额度", "80%", "90%"]);
+expectSection("xai-paid-acc", ["账户可用性", "额度可用"]);
+expectSection("compat-acc", ["该厂商无额度查询接口"]);
+expectSection("ag-acc", ["Gemini 模型", "Claude 和 GPT 模型", "60%", "10%", "75%"]);
 // Row 2 (cpa-fixture) also has a usable snapshot: same all-accounts view.
 if (notes1[1].value.className !== "cpa-q-accounts") throw new Error("second keyed panel must render the accounts container: " + notes1[1].value.className);
 // Row 3 (other-cpa) is keyless: the panel shows the paste-key hint.

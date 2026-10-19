@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.9.8] - 2026-10-19
+
+### Changed
+
+- **All-channel quota display polish**:
+  - Upstream English window/group labels ("Five Hour Limit Remaining",
+    "Weekly Limit Remaining", "Gemini Models", "Weekly limit", …) are now
+    translated in the Chinese UI, so Codex, Claude, Gemini CLI, Kimi, xAI and
+    Antigravity rows share the same vocabulary.
+  - Gemini-first group ordering in the hover card and all-accounts panel; a
+    fallback path that appends Gemini later no longer renders it below Claude.
+  - Gemini CLI buckets are filtered to Gemini/Gemma models, deduplicated per
+    model+window, and show relative reset countdowns like Antigravity.
+  - Claude weekly-scoped Fable rows arriving through both `iguana_necktie` and
+    `limits[]` are merged instead of duplicated.
+  - Reset timestamps emitted in milliseconds are normalized to seconds.
+
+### Fixed
+
+- Exhausted accounts with no remaining fraction now read "额度耗尽" instead of
+  "无数据".
+- Percentages just below 100 (or just above 0) no longer round to a misleading
+  "100%"/"0%"; they keep one decimal at the edges.
+- Nested upstream payload wrappers are unwrapped for Codex, Claude, Gemini and
+  Kimi responses as well.
+- Added per-channel regression assertions (Codex, Claude, Kimi, xAI, paid xAI
+  health, unsupported providers, Antigravity groups).
+
 ## [0.9.7] - 2026-10-19
 
 ### Fixed
